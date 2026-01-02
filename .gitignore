@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+
+# ML data (IMPORTANT)
+ml/data/raw/
+ml/data/processed/
+*.npy
+*.pt
+*.ckpt
+
+# Logs & experiments
+ml/experiments/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+node_modules/
+
+# IDE
+.vscode/
+.idea/
