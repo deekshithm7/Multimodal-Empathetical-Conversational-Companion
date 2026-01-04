@@ -1,11 +1,27 @@
+# Deep Learning
 torch
 torchvision
 torchaudio
 transformers
+
+# Speech-to-Text
+openai-whisper
+
+# Computer Vision
 opencv-python
+
+# Audio Processing
 librosa
+soundfile
+
+# ML & Utils
 numpy
 pandas
 scikit-learn
 tqdm
 matplotlib
+
+# Backend
+fastapi
+uvicorn
+python-multipart
