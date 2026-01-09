@@ -5,7 +5,6 @@ import os
 import uuid
 
 TARGET_SR = 16000
-DURATION = 15.0
 TEMP_DIR = "uploads/audio/tmp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
@@ -18,9 +17,9 @@ def extract_audio(video_path: str, return_wav=False):
                 "ffmpeg",
                 "-y",
                 "-i", video_path,
-                "-ac", "1",
+                "-vn",              # remove video stream
+                "-ac", "1",         # mono
                 "-ar", str(TARGET_SR),
-                "-t", str(DURATION),
                 temp_wav
             ],
             stdout=subprocess.DEVNULL,
@@ -28,13 +27,8 @@ def extract_audio(video_path: str, return_wav=False):
             check=True
         )
 
+        # Load full audio (no trimming)
         audio, _ = librosa.load(temp_wav, sr=TARGET_SR)
-
-        target_len = int(TARGET_SR * DURATION)
-        if len(audio) < target_len:
-            audio = np.pad(audio, (0, target_len - len(audio)))
-        else:
-            audio = audio[:target_len]
 
         if return_wav:
             return audio.astype(np.float32), temp_wav
