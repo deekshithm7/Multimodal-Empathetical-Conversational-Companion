@@ -1,46 +1,32 @@
 import subprocess
 import librosa
-import numpy as np
 import os
 import uuid
+import tempfile
 
 TARGET_SR = 16000
-DURATION = 15.0
-TEMP_DIR = "uploads/audio/tmp"
-os.makedirs(TEMP_DIR, exist_ok=True)
 
-def extract_audio(video_path: str, return_wav=False):
-    temp_wav = os.path.join(TEMP_DIR, f"{uuid.uuid4().hex}.wav")
+def extract_audio(video_path, return_wav=False):
+    tmp_dir = tempfile.gettempdir()
+    wav_path = os.path.join(tmp_dir, f"{uuid.uuid4().hex}.wav")
 
-    try:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i", video_path,
-                "-ac", "1",
-                "-ar", str(TARGET_SR),
-                "-t", str(DURATION),
-                temp_wav
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True
-        )
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i", video_path,
+        "-vn",
+        "-ac", "1",
+        "-ar", str(TARGET_SR),
+        "-acodec", "pcm_s16le",
+        wav_path
+    ]
 
-        audio, _ = librosa.load(temp_wav, sr=TARGET_SR)
+    subprocess.run(cmd, check=True)
 
-        target_len = int(TARGET_SR * DURATION)
-        if len(audio) < target_len:
-            audio = np.pad(audio, (0, target_len - len(audio)))
-        else:
-            audio = audio[:target_len]
+    audio, sr = librosa.load(wav_path, sr=TARGET_SR)
 
-        if return_wav:
-            return audio.astype(np.float32), temp_wav
+    if return_wav:
+        return audio, wav_path
 
-        return audio.astype(np.float32)
-
-    finally:
-        if not return_wav and os.path.exists(temp_wav):
-            os.remove(temp_wav)
+    os.remove(wav_path)
+    return audio

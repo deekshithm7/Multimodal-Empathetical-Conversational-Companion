@@ -2,34 +2,46 @@ import whisper
 import torch
 from transformers import AutoTokenizer, AutoModel
 
-# ---------- Load models ONCE ----------
-_whisper = whisper.load_model("base")
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+WHISPER_MODEL = whisper.load_model("base", device=DEVICE)
 
 TOKENIZER = AutoTokenizer.from_pretrained("roberta-base")
-TEXT_MODEL = AutoModel.from_pretrained("roberta-base")
+TEXT_MODEL = AutoModel.from_pretrained("roberta-base").to(DEVICE)
 TEXT_MODEL.eval()
 
-# ---------- Pipeline ----------
-def speech_to_text_and_features(wav_path):
-    # 1️⃣ Speech → Text
-    result = _whisper.transcribe(wav_path, fp16=False)
-    text = result["text"]
+def speech_to_text_and_features(wav_path: str):
+    result = WHISPER_MODEL.transcribe(
+        wav_path,
+        language="en",
+        fp16=torch.cuda.is_available(),
+        temperature=0.0,
+        best_of=5,
+        beam_size=5,
+        condition_on_previous_text=False,
+        no_speech_threshold=0.1,
+        logprob_threshold=-1.0,
+        verbose=False
+    )
 
-    # 2️⃣ Text → Embeddings
+    transcript = result["text"].strip()
+    if not transcript:
+        raise ValueError("Empty transcription")
+
     inputs = TOKENIZER(
-        text,
+        transcript,
         return_tensors="pt",
         truncation=True,
         padding=True,
-        max_length=128
-    )
+        max_length=512
+    ).to(DEVICE)
 
     with torch.no_grad():
         outputs = TEXT_MODEL(**inputs)
 
-    embedding = outputs.last_hidden_state[:, 0, :]  # CLS token
+    text_embedding = outputs.last_hidden_state.mean(dim=1).squeeze()
 
     return {
-        "transcript": text,
-        "text_features": embedding.squeeze().numpy().tolist()
+        "transcript": transcript,
+        "text_features": text_embedding.cpu().numpy().tolist()
     }
