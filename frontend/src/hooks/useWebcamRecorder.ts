@@ -6,18 +6,21 @@ export const useWebcamRecorder = () => {
     const chunksRef = useRef<Blob[]>([]);
     const streamRef = useRef<MediaStream | null>(null);
 
+    const [stream, setStream] = useState<MediaStream | null>(null);
+
     const startRecording = useCallback(async () => {
         try {
             // Request both video (camera) and audio (mic)
-            const stream = await navigator.mediaDevices.getUserMedia({
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: true,
                 audio: true
             });
 
-            streamRef.current = stream;
+            streamRef.current = mediaStream;
+            setStream(mediaStream);
 
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'video/webm;codecs=vp9'
+            const mediaRecorder = new MediaRecorder(mediaStream, {
+                mimeType: 'video/webm' // Removed codec spec for wider compatibility test
             });
 
             mediaRecorder.ondataavailable = (event) => {
@@ -48,6 +51,7 @@ export const useWebcamRecorder = () => {
                 if (streamRef.current) {
                     streamRef.current.getTracks().forEach(track => track.stop());
                     streamRef.current = null;
+                    setStream(null);
                 }
             };
 
@@ -71,6 +75,7 @@ export const useWebcamRecorder = () => {
     return {
         isRecordingSession,
         startRecording,
-        stopRecording
+        stopRecording,
+        stream
     };
 };

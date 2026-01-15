@@ -9,7 +9,7 @@ export interface Message {
 }
 
 interface EmotionState {
-    currentEmotion: Emotion;
+    currentEmotion: Emotion;a
     messages: Message[];
     isListening: boolean;
     setEmotion: (emotion: Emotion) => void;

@@ -1,1 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;600&display=swap');
 @import "tailwindcss";
+
+@theme {
+    /* Migrated from tailwind.config.js */
+    --color-glass-bg: rgba(255, 255, 255, 0.1);
+    --color-glass-border: rgba(255, 255, 255, 0.2);
+    --backdrop-blur-xs: 2px;
+}
+
+:root {
+    /* Default to a deep, warm charcoal */
+    --theme-bg: #0f0f13;
+    --theme-text: #e2e2e5;
+    --theme-accent: #3b3b4f;
+
+    /* Glass panel vars for dark mode */
+    --glass-bg: rgba(20, 20, 25, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', sans-serif;
+        overflow: hidden;
+        background: var(--theme-bg);
+        color: var(--theme-text);
+        transition: background-color 1.5s ease;
+    }
+}
+
+.font-serif {
+    font-family: 'Playfair Display', serif;
+}
+
+/* Premium Dark Glass Panel */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 24px;
+}
+
+/* Refined Scrollbar for Dark Mode */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Selection Color */
+::selection {
+    background: rgba(100, 200, 255, 0.2);
+    color: white;
+}
