@@ -38,10 +38,7 @@ async def extract_multimodal_features(
         with open(video_path, "wb") as buffer:
             shutil.copyfileobj(video.file, buffer)
 
-        # ---------- SAVE VIDEO ----------
-        contents = await video.read()
-        with open(video_path, "wb") as f:
-            f.write(contents)
+    
 
         # ---------- VISUAL ----------
         frames = extract_frames(video_path)

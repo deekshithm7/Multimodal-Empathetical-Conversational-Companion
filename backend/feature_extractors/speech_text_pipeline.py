@@ -40,9 +40,9 @@ def speech_to_text_and_features(wav_path):
         language="en",
         task="transcribe",
         fp16=(DEVICE == "cuda"),
-        condition_on_previous_text=False,   # 🔥 IMPORTANT
+        condition_on_previous_text=False,
         temperature=0.0,
-        no_speech_threshold=0.6,             # 🔥 prevents early cut
+        no_speech_threshold=0.6,
         compression_ratio_threshold=2.4,
         verbose=False
     )
@@ -59,7 +59,7 @@ def speech_to_text_and_features(wav_path):
 
     # ---------- 3️⃣ Text → Embeddings ----------
     inputs = TOKENIZER(
-        transcript,
+        text,
         return_tensors="pt",
         truncation=True,
         padding=True,
@@ -73,10 +73,5 @@ def speech_to_text_and_features(wav_path):
 
     return {
         "transcript": text,
-        "text_features": embedding.squeeze(0).cpu().numpy().tolist()
+        "text_features": text_embedding.cpu().numpy().tolist()
     }
-
-# ---------- Example Usage ----------
-# result = speech_to_text_and_features("audio.wav")
-# print(result["transcript"])
-# print(len(result["text_features"]))
