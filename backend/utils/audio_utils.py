@@ -5,6 +5,8 @@ import uuid
 import tempfile
 
 TARGET_SR = 16000
+TEMP_DIR = "uploads/audio/tmp"
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 def extract_audio(video_path, return_wav=False):
     tmp_dir = tempfile.gettempdir()
@@ -23,6 +25,11 @@ def extract_audio(video_path, return_wav=False):
 
     subprocess.run(cmd, check=True)
 
+        # Load full audio (no trimming)
+        audio, _ = librosa.load(temp_wav, sr=TARGET_SR)
+
+        if return_wav:
+            return audio.astype(np.float32), temp_wav
     audio, sr = librosa.load(wav_path, sr=TARGET_SR)
 
     if return_wav:
