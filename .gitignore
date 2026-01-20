@@ -28,5 +28,4 @@ node_modules/
 # IDE
 .vscode/
 .idea/
-backend/
-.uploads
+backend/uploads
