@@ -13,6 +13,7 @@ ml/data/processed/
 *.npy
 *.pt
 *.ckpt
+*.pth
 
 # Logs & experiments
 ml/experiments/
