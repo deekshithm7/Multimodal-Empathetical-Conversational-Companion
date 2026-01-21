@@ -1,36 +1,32 @@
 import torch
+import argparse
+import json
 from torch.utils.data import DataLoader
+
 from dataset import DummyMultiModalDataset
 from fusion import fuse
 from model import FusionMLP
+from eval import compute_metrics
 
-def train_phase1():
+def train():
 
-    # Config (you'll later make this argparse or json)
-    config = {
-        "batch_size": 16,
-        "epochs": 2,
-        "lr": 1e-3,
-        "use_v": False,
-        "use_a": False,
-        "use_t": True,
-        "num_classes": 4
-    }
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, required=True)
+    args = parser.parse_args()
 
-    # Dummy dataset + loader
+    with open(args.config) as f:
+        config = json.load(f)
+
     train_ds = DummyMultiModalDataset(n=200)
     val_ds   = DummyMultiModalDataset(n=50)
 
     train_loader = DataLoader(train_ds, batch_size=config["batch_size"], shuffle=True)
     val_loader   = DataLoader(val_ds, batch_size=config["batch_size"], shuffle=False)
 
-    # Model + loss + optim
     model = FusionMLP(
-        input_dim=(
-            (2048 if config["use_v"] else 0) +
-            (768  if config["use_a"] else 0) +
-            (768  if config["use_t"] else 0)
-        ),
+        use_v=config["use_v"],
+        use_a=config["use_a"],
+        use_t=config["use_t"],
         num_classes=config["num_classes"]
     )
 
@@ -41,11 +37,14 @@ def train_phase1():
         model.train()
         total_loss = 0
 
-        for V, A, T, y in train_loader:
+        for V,A,T,y in train_loader:
+            # batchify if needed
+            if V.ndim == 1: V = V.unsqueeze(0)
+            if A.ndim == 1: A = A.unsqueeze(0)
+            if T.ndim == 1: T = T.unsqueeze(0)
+
             fused = fuse(
-                V.unsqueeze(0) if V.ndim==1 else V,
-                A.unsqueeze(0) if A.ndim==1 else A,
-                T.unsqueeze(0) if T.ndim==1 else T,
+                V,A,T,
                 use_v=config["use_v"],
                 use_a=config["use_a"],
                 use_t=config["use_t"]
@@ -57,36 +56,40 @@ def train_phase1():
             optim.zero_grad()
             loss.backward()
             optim.step()
-
             total_loss += loss.item()
 
-        print(f"epoch {epoch} train_loss={total_loss/len(train_loader):.4f}")
+        print(f"[epoch {epoch}] train_loss={total_loss/len(train_loader):.3f}")
 
-        # --- eval ---
+        # -------- eval --------
         model.eval()
-        correct = 0
-        total = 0
+        preds = []
+        labels = []
+
         with torch.no_grad():
-            for V, A, T, y in val_loader:
+            for V,A,T,y in val_loader:
+                if V.ndim == 1: V = V.unsqueeze(0)
+                if A.ndim == 1: A = A.unsqueeze(0)
+                if T.ndim == 1: T = T.unsqueeze(0)
+
                 fused = fuse(
-                    V if V.ndim>1 else V.unsqueeze(0),
-                    A if A.ndim>1 else A.unsqueeze(0),
-                    T if T.ndim>1 else T.unsqueeze(0),
+                    V,A,T,
                     use_v=config["use_v"],
                     use_a=config["use_a"],
                     use_t=config["use_t"]
                 )
                 logits = model(fused)
-                preds = torch.argmax(logits, dim=1)
-                correct += (preds == y).sum().item()
-                total += y.size(0)
+                p = torch.argmax(logits, dim=1)
+                preds.extend(p.tolist())
+                labels.extend(y.tolist())
 
-        acc = correct / total if total > 0 else 0.0
-        print(f"epoch {epoch} val_acc={acc:.3f}")
+        metrics = compute_metrics(preds, labels)
+        print(f"[epoch {epoch}] acc={metrics['accuracy']:.3f}, f1={metrics['f1_weighted']:.3f}")
 
-    # --- checkpoint ---
-    torch.save(model.state_dict(), "dummy_checkpoint.pth")
-    print("checkpoint saved")
+    # -------- checkpoint --------
+    ckpt_path = f"../checkpoints/{args.config.split('/')[-1].replace('.json','.pth')}"
+    torch.save({"model": model.state_dict(), "config": config}, ckpt_path)
+    print("saved:", ckpt_path)
+
 
 if __name__ == "__main__":
-    train_phase1()
+    train()
