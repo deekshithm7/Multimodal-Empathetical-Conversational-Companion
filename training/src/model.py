@@ -11,16 +11,26 @@ class FusionMLP(nn.Module):
             (768  if use_t else 0)
         )
         print("input_dim=", input_dim)
+        
+        # Larger capacity for trimodal (V+A+T has 3584 dim input)
+        hidden_dim1 = 2048 if input_dim > 2000 else 1024
+        hidden_dim2 = 1024 if input_dim > 2000 else 512
+        
+        # Reduced dropout for trimodal (0.1 instead of 0.3)
+        dropout_rate = 0.1 if input_dim > 2000 else 0.3
+        
         self.mlp = nn.Sequential(
-            nn.Linear(input_dim, 1024),
+            nn.Linear(input_dim, hidden_dim1),
+            nn.BatchNorm1d(hidden_dim1),  # Add batch norm
             nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(1024, 512),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_dim1, hidden_dim2),
+            nn.BatchNorm1d(hidden_dim2),  # Add batch norm
             nn.GELU(),
-            nn.Dropout(0.1)
+            nn.Dropout(dropout_rate)
         )
 
-        self.classifier = nn.Linear(512, num_classes)
+        self.classifier = nn.Linear(hidden_dim2, num_classes)
 
     def forward(self, fused):
         h = self.mlp(fused)

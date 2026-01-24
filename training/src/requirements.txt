@@ -4,3 +4,5 @@ torchaudio
 torchvision
 numpy
 scikit-learn
+opencv-python
+tqdm

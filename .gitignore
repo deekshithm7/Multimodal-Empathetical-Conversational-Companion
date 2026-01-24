@@ -6,6 +6,7 @@ __pycache__/
 .env
 .venv/
 venv/
+venv311/
 
 # ML data (IMPORTANT)
 ml/data/raw/
@@ -14,6 +15,13 @@ ml/data/processed/
 *.pt
 *.ckpt
 *.pth
+
+# Training artifacts (large files)
+training/features/
+training/checkpoints/
+training/train_index.json
+training/test_index.json
+training/src/venv311/
 
 # Logs & experiments
 ml/experiments/
