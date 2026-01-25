@@ -5,19 +5,22 @@ class FusionMLP(nn.Module):
     def __init__(self, use_v, use_a, use_t, num_classes):
         super().__init__()
 
+        # Use full ResNet50 features (2048-dim) for better quality
+        vision_dim = 2048 if use_v else 0
+        
         input_dim = (
-            (2048 if use_v else 0) +
+            (vision_dim if use_v else 0) +
             (768  if use_a else 0) +
             (768  if use_t else 0)
         )
         print("input_dim=", input_dim)
         
-        # Larger capacity for trimodal (V+A+T has 3584 dim input)
-        hidden_dim1 = 2048 if input_dim > 2000 else 1024
-        hidden_dim2 = 1024 if input_dim > 2000 else 512
+        # Larger capacity for trimodal
+        hidden_dim1 = 2048 if input_dim > 1500 else 1024
+        hidden_dim2 = 1024 if input_dim > 1500 else 512
         
-        # Reduced dropout for trimodal (0.1 instead of 0.3)
-        dropout_rate = 0.1 if input_dim > 2000 else 0.3
+        # HIGHER dropout for trimodal (0.5 instead of 0.1) - critical fix!
+        dropout_rate = 0.5 if input_dim > 1500 else 0.3
         
         self.mlp = nn.Sequential(
             nn.Linear(input_dim, hidden_dim1),

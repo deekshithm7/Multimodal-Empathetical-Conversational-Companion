@@ -1,8 +1,20 @@
+# RAVDESS Training Dependencies
+
+# Core PyTorch
 torch
-transformers
-torchaudio
 torchvision
-numpy
-scikit-learn
+torchaudio
+
+# Transformers (RoBERTa, WavLM)
+transformers
+
+# Audio processing
+pydub  # For MP4 audio extraction (requires ffmpeg)
+
+# Computer vision
 opencv-python
-tqdm
+
+# Utilities
+numpy
+scikit-learn  # For F1-score metric
+tqdm  # Progress bars

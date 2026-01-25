@@ -21,7 +21,11 @@ training/features/
 training/checkpoints/
 training/train_index.json
 training/test_index.json
+training/ravdess_train_index.json
+training/ravdess_test_index.json
 training/src/venv311/
+training/iemocap_archive/
+training/RAVDESS_TRAINING_RESULTS.md
 
 # Logs & experiments
 ml/experiments/

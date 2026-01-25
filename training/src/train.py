@@ -19,10 +19,21 @@ def train():
     with open(args.config) as f:
         config = json.load(f)
 
-    # Use IEMOCAP dataset
+    # Detect dataset and load appropriate dataset class
+    dataset_name = config.get("dataset", "iemocap")  # default to iemocap
     use_vision = config.get("use_v", True)
-    train_ds = IEMOCAPDataset(args.train_index, use_vision=use_vision)
-    val_ds = IEMOCAPDataset(args.test_index, use_vision=use_vision)
+    
+    if dataset_name == "ravdess":
+        from ravdess_dataset import RAVDESSDataset
+        # Use RAVDESS-specific index files if not specified
+        train_index = args.train_index if args.train_index != "../train_index.json" else "../ravdess_train_index.json"
+        test_index = args.test_index if args.test_index != "../test_index.json" else "../ravdess_test_index.json"
+        train_ds = RAVDESSDataset(train_index, use_vision=use_vision)
+        val_ds = RAVDESSDataset(test_index, use_vision=use_vision)
+    else:
+        from iemocap_dataset import IEMOCAPDataset
+        train_ds = IEMOCAPDataset(args.train_index, use_vision=use_vision)
+        val_ds = IEMOCAPDataset(args.test_index, use_vision=use_vision)
 
     train_loader = DataLoader(train_ds, batch_size=config["batch_size"], shuffle=True)
     val_loader   = DataLoader(val_ds, batch_size=config["batch_size"], shuffle=False)
