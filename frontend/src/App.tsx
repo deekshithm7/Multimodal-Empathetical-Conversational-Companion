@@ -10,15 +10,24 @@ import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useWebcamRecorder } from './hooks/useWebcamRecorder';
 
 function App() {
-  const { currentEmotion, setListening, isListening, addMessage, setEmotion, aiSpeaking, setAiSpeaking } = useEmotionStore();
+  const { currentEmotion, setListening, isListening, startSession, sendMessage, conversationId, isLoading } = useEmotionStore();
   const { transcript, isListening: recognitionActive, startListening, stopListening, resetTranscript } = useSpeechRecognition();
 
   // Webcam Recording Hook (Records Camera + Audio)
-  const { isRecordingSession, startRecording, stopRecording, stream } = useWebcamRecorder();
+  const { isRecordingSession, startRecording, stopRecording, stream, recordedBlob } = useWebcamRecorder();
 
   // Dashboard Logic
   const [showSummary, setShowSummary] = useState(false);
   const wasRecordingRef = useRef(false);
+  const sessionInitializedRef = useRef(false);
+
+  // Start backend session on mount (only once, even in StrictMode)
+  useEffect(() => {
+    if (!sessionInitializedRef.current) {
+      sessionInitializedRef.current = true;
+      startSession();
+    }
+  }, [startSession]);
 
   // Sync recognition state with store
   useEffect(() => {
@@ -48,41 +57,19 @@ function App() {
     }
   };
 
-  // Handle transcript processing & AI Mock Response
+  // Send video blob to backend when recording stops
   useEffect(() => {
-    if (!recognitionActive && transcript.trim()) {
-      const text = transcript.toLowerCase();
-      let detectedEmotion = currentEmotion;
-      if (text.includes('happy') || text.includes('good') || text.includes('joy')) detectedEmotion = 'happy';
-      else if (text.includes('sad') || text.includes('bad') || text.includes('cry')) detectedEmotion = 'sad';
-      else if (text.includes('angry') || text.includes('hate') || text.includes('mad')) detectedEmotion = 'angry';
+    if (recordedBlob && conversationId) {
+      console.log('✅ Sending video blob to backend:', {
+        blobSize: recordedBlob.size,
+        conversationId
+      });
 
-      setEmotion(detectedEmotion);
-      addMessage({ id: Date.now().toString(), sender: 'user', text: transcript });
-      resetTranscript();
-
-      // Simulate AI Processing & Response
-      setTimeout(() => {
-        const responses: Record<string, string> = {
-          happy: "That sounds wonderful. I'm glad you're feeling good.",
-          sad: "I'm sorry to hear that. I'm here for you.",
-          angry: "It sounds like you're frustrated. Let's talk about it.",
-          neutral: "I see. Tell me more."
-        };
-
-        const responseText = responses[detectedEmotion] || "I'm listening.";
-        addMessage({ id: (Date.now() + 1).toString(), sender: 'companion', text: responseText });
-
-        // Trigger AI Speaking Visuals
-        setAiSpeaking(true);
-        // Mock speech duration based on text length
-        setTimeout(() => {
-          setAiSpeaking(false);
-        }, 3000);
-
-      }, 1000);
+      // Send the video blob with a placeholder text
+      // Backend will extract audio and transcribe it
+      sendMessage('', recordedBlob);
     }
-  }, [recognitionActive, transcript, addMessage, currentEmotion, resetTranscript, setEmotion, setAiSpeaking]);
+  }, [recordedBlob, conversationId, sendMessage]);
 
 
   useEffect(() => {
@@ -101,7 +88,7 @@ function App() {
 
       {/* 1. Ambient Background (WaveVisualizer) - Ducking handled internally */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
-        <WaveVisualizer isListening={isListening} isAiSpeaking={aiSpeaking} emotion={currentEmotion} />
+        <WaveVisualizer isListening={isListening} emotion={currentEmotion} />
       </div>
 
       {/* 2. Central Avatar (The "Analyst") */}

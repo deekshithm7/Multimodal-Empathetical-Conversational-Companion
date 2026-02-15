@@ -1,0 +1,9 @@
+{
+  "use_v": true,
+  "use_a": false,
+  "use_t": true,
+  "num_classes": 4,
+  "batch_size": 16,
+  "epochs": 2,
+  "lr": 0.001
+}

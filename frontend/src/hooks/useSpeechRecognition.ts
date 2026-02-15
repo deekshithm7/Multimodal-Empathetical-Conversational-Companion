@@ -23,6 +23,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
             recognitionInstance.lang = 'en-US';
 
             recognitionInstance.onresult = (event: any) => {
+                console.log('🎤 Speech recognition result:', event.results);
                 let finalTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
@@ -35,29 +36,38 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
                 const current = Array.from(event.results)
                     .map((result: any) => result[0].transcript)
                     .join('');
+                console.log('📝 Transcript updated:', current);
                 setTranscript(current);
             };
 
             recognitionInstance.onend = () => {
+                console.log('🛑 Speech recognition ended');
                 setIsListening(false);
             };
 
             recognitionInstance.onerror = (event: any) => {
-                console.error('Speech recognition error', event.error);
+                console.error('❌ Speech recognition error:', event.error, event);
                 setIsListening(false);
             };
 
+            recognitionInstance.onstart = () => {
+                console.log('🎙️ Speech recognition started');
+            };
+
             setRecognition(recognitionInstance);
+        } else {
+            console.error('❌ Speech recognition NOT supported in this browser');
         }
     }, []);
 
     const startListening = useCallback(() => {
+        console.log('▶️ Attempting to start listening...', { hasRecognition: !!recognition });
         if (recognition) {
             try {
                 recognition.start();
                 setIsListening(true);
             } catch (e) {
-                console.error("Error starting recognition:", e);
+                console.error("❌ Error starting recognition:", e);
             }
         }
     }, [recognition]);

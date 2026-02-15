@@ -49,11 +49,16 @@ export const WaveVisualizer = forwardRef<HTMLCanvasElement, WaveVisualizerProps>
             // Cleanup Logic
             if (sourceRef.current) { sourceRef.current.disconnect(); sourceRef.current = null; }
             if (analyserRef.current) { analyserRef.current = null; }
-            if (audioContextRef.current) { audioContextRef.current.close(); audioContextRef.current = null; }
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+                audioContextRef.current.close();
+                audioContextRef.current = null;
+            }
         }
         return () => {
             if (sourceRef.current) sourceRef.current.disconnect();
-            if (audioContextRef.current) audioContextRef.current.close();
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+                audioContextRef.current.close();
+            }
         };
     }, [isListening]);
 
