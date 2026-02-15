@@ -5,10 +5,8 @@ Handles audio+text emotion detection using the trained IEMOCAP A+T model.
 
 import torch
 import torch.nn.functional as F
-from transformers import AutoFeatureExtractor, AutoModel, AutoTokenizer
-import librosa
 import numpy as np
-from typing import Optional, Dict
+from typing import Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,6 +27,9 @@ class EmotionRecognitionService:
         """
         Initialize the emotion recognition service.
         
+        Note: This service now uses centralized feature extraction from feature_service.
+        It only loads the emotion classifier, not the encoders.
+        
         Args:
             checkpoint_path: Path to the trained model checkpoint (at.pth)
             device: Device to run inference on ('cuda' or 'cpu')
@@ -36,21 +37,10 @@ class EmotionRecognitionService:
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         logger.info(f"Initializing EmotionRecognitionService on {self.device}")
         
-        # Load audio encoder (WavLM-base)
-        logger.info("Loading WavLM audio encoder...")
-        self.audio_processor = AutoFeatureExtractor.from_pretrained('microsoft/wavlm-base')
-        self.audio_model = AutoModel.from_pretrained('microsoft/wavlm-base').to(self.device)
-        self.audio_model.eval()
-        
-        # Load text encoder (RoBERTa-base)
-        logger.info("Loading RoBERTa text encoder...")
-        self.text_tokenizer = AutoTokenizer.from_pretrained('roberta-base')
-        self.text_model = AutoModel.from_pretrained('roberta-base').to(self.device)
-        self.text_model.eval()
-        
-        # Load trained emotion classifier
+        # Load trained emotion classifier ONLY
+        # (Feature extraction handled by feature_service)
         logger.info(f"Loading emotion classifier from {checkpoint_path}...")
-        from models.fusion_mlp import FusionMLP
+        from models.emotion_classifier import FusionMLP
         
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         self.classifier = FusionMLP(use_v=False, use_a=True, use_t=True, num_classes=4)
@@ -68,174 +58,60 @@ class EmotionRecognitionService:
         
         logger.info("✅ EmotionRecognitionService initialized successfully")
     
-    def extract_audio_features(self, audio_path: str) -> np.ndarray:
-        """
-        Extract 768-dimensional audio features using WavLM.
-        
-        Args:
-            audio_path: Path to audio file (WAV, MP3, M4A, etc.)
-        
-        Returns:
-            L2-normalized audio embedding [768]
-        """
-        try:
-            # Load audio at 16kHz (WavLM's expected sample rate)
-            waveform, sr = librosa.load(audio_path, sr=16000, mono=True)
-            
-            # Process with WavLM
-            inputs = self.audio_processor(
-                waveform,
-                sampling_rate=16000,
-                return_tensors='pt'
-            )
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            with torch.no_grad():
-                outputs = self.audio_model(**inputs)
-                # Mean pooling over time dimension
-                audio_emb = outputs.last_hidden_state.mean(dim=1).squeeze()  # [768]
-            
-            # L2 normalize (CRITICAL - matches training procedure)
-            audio_emb = F.normalize(audio_emb, p=2, dim=0)
-            
-            return audio_emb.cpu().numpy()
-        
-        except Exception as e:
-            logger.error(f"Error extracting audio features: {e}")
-            raise
-    
-    def extract_text_features(self, text: str) -> np.ndarray:
-        """
-        Extract 768-dimensional text features using RoBERTa.
-        
-        Args:
-            text: Input text string
-        
-        Returns:
-            L2-normalized text embedding [768]
-        """
-        try:
-            # Tokenize
-            inputs = self.text_tokenizer(
-                text,
-                return_tensors='pt',
-                max_length=128,
-                truncation=True,
-                padding='max_length'
-            )
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            with torch.no_grad():
-                outputs = self.text_model(**inputs)
-                # Mean pooling over sequence dimension
-                text_emb = outputs.last_hidden_state.mean(dim=1).squeeze()  # [768]
-            
-            # L2 normalize (CRITICAL - matches training procedure)
-            text_emb = F.normalize(text_emb, p=2, dim=0)
-            
-            return text_emb.cpu().numpy()
-        
-        except Exception as e:
-            logger.error(f"Error extracting text features: {e}")
-            raise
-    
-    def predict_emotion(
+    def predict_from_features(
         self,
-        audio_path: Optional[str] = None,
-        text: Optional[str] = None
+        audio_features: np.ndarray,
+        text_features: np.ndarray
     ) -> Dict[str, any]:
         """
-        Predict emotion from audio and/or text input.
+        Predict emotion from pre-extracted features.
         
-        At least one input (audio or text) must be provided.
+        This is the NEW METHOD for the refactored architecture.
+        Use this when features are already extracted by feature_service.
         
         Args:
-            audio_path: Path to audio file (optional)
-            text: Text string (optional)
+            audio_features: [768] audio embedding from WavLM
+            text_features: [768] text embedding from RoBERTa
         
         Returns:
-            Dictionary containing:
-                - emotion: Predicted emotion label (str)
-                - confidence: Confidence score (float)
-                - probabilities: Dict of all emotion probabilities
-        
-        Raises:
-            ValueError: If neither audio nor text is provided
+            Dictionary with emotion and confidence
         """
-        if audio_path is None and text is None:
-            raise ValueError("At least one of audio_path or text must be provided")
-        
         try:
-            # Extract features
-            if audio_path:
-                audio_features = self.extract_audio_features(audio_path)
-            else:
-                # Zero padding if audio not provided
-                audio_features = np.zeros(768, dtype=np.float32)
+            # Ensure numpy arrays
+            audio_features = np.array(audio_features, dtype=np.float32)
+            text_features = np.array(text_features, dtype=np.float32)
             
-            if text:
-                text_features = self.extract_text_features(text)
-            else:
-                # Zero padding if text not provided
-                text_features = np.zeros(768, dtype=np.float32)
+            # L2 normalize (match training)
+            audio_features = audio_features / (np.linalg.norm(audio_features) + 1e-8)
+            text_features = text_features / (np.linalg.norm(text_features) + 1e-8)
             
-            # Concatenate features [1536-dim]
-            fused_features = np.concatenate([audio_features, text_features])
-            fused_tensor = torch.from_numpy(fused_features).float().unsqueeze(0).to(self.device)
+            # Concatenate [audio(768) + text(768)] = 1536
+            combined = np.concatenate([audio_features, text_features])
             
-            # Inference
+            # Convert to tensor
+            input_tensor = torch.from_numpy(combined).float().unsqueeze(0)  # [1, 1536]
+            input_tensor = input_tensor.to(self.device)
+            
+            # Predict
             with torch.no_grad():
-                logits = self.classifier(fused_tensor)
-                probabilities = torch.softmax(logits, dim=1).squeeze()
-                predicted_class = torch.argmax(logits, dim=1).item()
+                logits = self.classifier(input_tensor)  # [1, 4]
+                probs = F.softmax(logits, dim=1)
+                confidence, pred_class = torch.max(probs, dim=1)
             
-            # Format output
-            emotion = self.emotion_map[predicted_class]
-            confidence = probabilities[predicted_class].item()
+            emotion_label = self.emotion_map[pred_class.item()]
+            confidence_score = confidence.item()
             
-            result = {
-                'emotion': emotion,
-                'confidence': float(confidence),
-                'probabilities': {
-                    self.emotion_map[i]: float(probabilities[i])
-                    for i in range(4)
-                }
+            logger.info(f"Predicted emotion: {emotion_label} (confidence: {confidence_score:.2%})")
+            
+            return {
+                'emotion': emotion_label,
+                'confidence': confidence_score
             }
-            
-            logger.info(f"Predicted emotion: {emotion} (confidence: {confidence:.2%})")
-            return result
         
         except Exception as e:
-            logger.error(f"Error during emotion prediction: {e}")
+            logger.error(f"Error predicting from features: {e}")
             raise
     
-    def predict_batch(
-        self,
-        audio_paths: list = None,
-        texts: list = None
-    ) -> list:
-        """
-        Batch prediction for multiple samples.
-        
-        Args:
-            audio_paths: List of audio file paths
-            texts: List of text strings
-        
-        Returns:
-            List of prediction dictionaries
-        """
-        if audio_paths is None:
-            audio_paths = [None] * len(texts)
-        if texts is None:
-            texts = [None] * len(audio_paths)
-        
-        results = []
-        for audio_path, text in zip(audio_paths, texts):
-            result = self.predict_emotion(audio_path=audio_path, text=text)
-            results.append(result)
-        
-        return results
-
 
 # Singleton instance for global access
 _emotion_service_instance = None

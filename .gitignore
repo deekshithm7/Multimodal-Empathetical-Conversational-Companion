@@ -1,40 +1,69 @@
-# Python
+# -----------------------------
+# PYTHON & BACKEND
+# -----------------------------
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .env
+.env.local
 .venv/
 venv/
 venv311/
+backend/venv/
 
-# ML data (IMPORTANT)
+# Application Specific
+backend/audio_storage/
+backend/checkpoints/
+backend/features.npy
+backend/labels.npy
+backend/test_piper_import.py
+
+# -----------------------------
+# ML / DATA / ARTIFACTS
+# -----------------------------
 ml/data/raw/
 ml/data/processed/
-*.npy
-*.pt
-*.ckpt
-*.pth
-
-# Training artifacts (large files)
+ml/experiments/
 training/features/
 training/checkpoints/
 training/train_index.json
 training/test_index.json
 training/src/venv311/
 
-# Logs & experiments
-ml/experiments/
-logs/
+# Model Weights (Large Files)
+*.npy
+*.pt
+*.ckpt
+*.pth
+*.safetensors
+*.bin
+*.onnx
 
-# OS
+# -----------------------------
+# FRONTEND (Node/React/Vite)
+# -----------------------------
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -----------------------------
+# LOGS & MISC
+# -----------------------------
+logs/
+coverage/
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Frontend
-node_modules/
-
+# -----------------------------
 # IDE
+# -----------------------------
 .vscode/
 .idea/
-backend/uploads

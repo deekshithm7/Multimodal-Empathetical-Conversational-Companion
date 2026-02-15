@@ -1,0 +1,77 @@
+# Python Dependencies - MECC Backend
+
+# ==============================================================================
+# CORE ML/DL FRAMEWORKS
+# ==============================================================================
+torch>=2.5.0
+torchaudio>=2.5.0
+torchvision>=0.15.0
+
+# ==============================================================================
+# TRANSFORMERS & NLP
+# ==============================================================================
+transformers==4.46.0  # Pinned: newer versions require PyTorch 2.6+
+tokenizers>=0.13.0
+
+# ==============================================================================
+# AUDIO PROCESSING
+# ==============================================================================
+soundfile>=0.12.0      # Primary audio I/O (fast, replaces libr osa)
+openai-whisper>=20230314  # Speech-to-text
+
+# ==============================================================================
+# WEB FRAMEWORK
+# ==============================================================================
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6  # File upload support
+
+# ==============================================================================
+# DATABASE
+# ==============================================================================
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0  # PostgreSQL driver
+
+# ==============================================================================
+# DATA & UTILITIES
+# ==============================================================================
+numpy>=1.24.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# ==============================================================================
+# FREE SERVICES (No API costs!)
+# ==============================================================================
+piper-tts>=1.2.0        # Text-to-speech (local)
+requests>=2.31.0        # HTTP client for Ollama API
+
+# ==============================================================================
+# EXTERNAL DEPENDENCIES (Install separately)
+# ==============================================================================
+# These are NOT Python packages - install them on your system:
+#
+# 1. Ollama (FREE Local LLM - Llama 3.2)
+#    Download: https://ollama.com/download
+#    After install: ollama pull llama3.2:3b
+#    Start server: ollama serve
+#
+# 2. FFmpeg (Audio conversion)
+#    Windows: choco install ffmpeg
+#    Mac: brew install ffmpeg
+#    Linux: sudo apt install ffmpeg
+#
+# 3. PostgreSQL (Database)
+#    Download: https://postgresql.org
+#    Create database: mecc_db
+#
+# ==============================================================================
+# DEVELOPMENT (Optional)
+# ==============================================================================
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# black>=23.0.0
+# flake8>=6.0.0
+
+# ==============================================================================  
+# TOTAL API COST: $0 FOREVER! 💰
+# ==============================================================================

@@ -26,9 +26,10 @@ logger = logging.getLogger(__name__)
 
 # Import services
 from services.emotion_service import get_emotion_service
-from services.free_llm_service import get_free_llm_service
-from services.free_tts_service import get_free_tts_service
-from services.whisper_service import get_whisper_service
+from services.llm_service import get_free_llm_service
+from services.tts_service import get_free_tts_service
+from services.transcription_service import get_whisper_service
+from services.feature_service import get_feature_service # NEW: Pre-load WavLM + RoBERTa
 from database import (
     get_db, init_db,
     create_conversation, save_message, get_conversation_history,
@@ -114,6 +115,13 @@ async def startup_event():
             device=device
         )
         
+        # Pre-load feature service encoders to avoid loading during first message
+        feature_service = get_feature_service()
+        # IMPORTANT: Access properties to trigger lazy loading!
+        _ = feature_service.audio_encoder  # Triggers WavLM loading
+        _ = feature_service.text_encoder   # Triggers RoBERTa + Whisper loading
+        logger.info("✅ Feature service encoders pre-loaded")
+        
         logger.info("✅ All services initialized successfully")
     
     except Exception as e:
@@ -136,14 +144,15 @@ def save_audio_file(audio: UploadFile, conversation_id: str) -> Dict:
         content = audio.file.read()
         f.write(content)
     
-    # Get duration (using librosa) with fallback
+    
+    # Get duration using soundfile (fast, no TorchCodec) with fallback
     duration = 0.0
     try:
-        import librosa
-        waveform, sr = librosa.load(file_path, sr=None)
-        duration = len(waveform) / sr
+        import soundfile as sf
+        info = sf.info(file_path)
+        duration = info.duration
     except Exception as e:
-        logger.warning(f"Failed to load audio for duration calculation (possibly missing ffmpeg): {e}")
+        logger.warning(f"Failed to get audio duration: {e}")
         # Continue without duration - not critical
     
     return {
@@ -239,120 +248,72 @@ async def send_message(
 ):
     """
     Process user message (audio and/or text) and generate empathetic response.
+    
+    Delegates all business logic to conversation_service orchestrator.
     """
     start_time = datetime.now()
-    logger.info(f"Received message request for conversation: {conversation_id}")
+    logger.info(f"📨 Received message for conversation: {conversation_id}")
     
+    # Validate input
     if not audio and not text:
-        logger.error("No audio or text provided in request")
+        logger.error("No audio or text provided")
         raise HTTPException(status_code=400, detail="Must provide audio or text")
     
     audio_temp_path = None
-    user_audio_data = None
     
     try:
-        # Step 1: Handle audio input
+        # Step 1: Save uploaded audio file (if provided)
         if audio:
-            logger.info(f"Processing audio input: {audio.filename}, content_type={audio.content_type}")
+            logger.info(f"Saving audio: {audio.filename}")
             user_audio_data = save_audio_file(audio, conversation_id)
             audio_temp_path = user_audio_data['path']
-            logger.info(f"Audio saved to: {audio_temp_path}")
-            
-            # Step 2: Transcribe audio
-            if not text:  # If text not provided, transcribe audio
-                logger.info("Transcribing audio...")
-                transcription = whisper_service.transcribe(audio_temp_path)
-                text = transcription['text']
-                logger.info(f"Transcribed text: {text}")
-            
-        if not text or len(text.strip()) == 0:
-            logger.error("No text content found after transcription")
-            raise HTTPException(status_code=400, detail="No valid text input")
+            logger.info(f"✅ Audio saved: {audio_temp_path}")
         
-        logger.info(f"Final text to process: {text}")
-
-        # Step 3: Detect emotion
-        logger.info("Detecting emotion...")
-        emotion_result = emotion_service.predict_emotion(
-            audio_path=audio_temp_path if audio else None,
-            text=text
+        # Step 2: Delegate to conversation service (THE BOSS!)
+        logger.info("🚀 Delegating to conversation_service...")
+        from services.conversation_service import get_conversation_service
+        conversation_service = get_conversation_service()
+        
+        result = conversation_service.process_message(
+            conversation_id=conversation_id,
+            audio_path=audio_temp_path,
+            text=text,
+            db_session=db
         )
-        logger.info(f"Emotion result: {emotion_result}")
         
-        # Step 4: Get conversation history
-        history = get_conversation_history(db, conversation_id, limit=10)
-        conversation_context = [
-            {'role': msg['role'], 'content': msg['content']}
-            for msg in history
-        ]
-        logger.info(f"Retrieved {len(history)} messages of context")
+        # Check for errors
+        if result['status'] == 'error':
+            logger.error(f"❌ Processing failed: {result['error']}")
+            raise HTTPException(status_code=500, detail=result['error'])
         
-        # Step 5: Generate empathetic response
-        logger.info("Generating LLM response...")
-        assistant_text = llm_service.generate_empathetic_response(
-            user_message=text,
-            detected_emotion=emotion_result['emotion'],
-            emotion_confidence=emotion_result['confidence'],
-            conversation_history=conversation_context
-        )
-        logger.info(f"LLM Response: {assistant_text}")
-        
-        # Step 6: Convert response to speech
-        logger.info("Generating TTS audio...")
-        assistant_audio_path = tts_service.generate_speech(
-            assistant_text,
-            emotion=emotion_result['emotion']
-        )
-        logger.info(f"TTS Audio generated at: {assistant_audio_path}")
-        
-        # Move assistant audio to storage
-        assistant_filename = f"{conversation_id}_{uuid.uuid4()}.mp3"
-        assistant_stored_path = os.path.join(AUDIO_STORAGE_DIR, assistant_filename)
-        shutil.copy(assistant_audio_path, assistant_stored_path)
-        
-        # Step 7: Save messages to DB
+        # Step 3: Calculate processing time
         processing_time = int((datetime.now() - start_time).total_seconds() * 1000)
+        logger.info(f"✅ Message processed in {processing_time}ms")
         
-        # Save user message
-        save_message(
-            db,
-            conversation_id=conversation_id,
-            role='user',
-            content=text,
-            emotion_data=emotion_result,
-            audio_data=user_audio_data,
-            processing_time=processing_time
-        )
-        
-        # Save assistant message
-        save_message(
-            db,
-            conversation_id=conversation_id,
-            role='assistant',
-            content=assistant_text,
-            audio_data={'path': assistant_stored_path, 'duration': 5.0}  # Estimate
-        )
-        
-        # Cleanup temp files in background
-        if background_tasks:
-            background_tasks.add_task(cleanup_temp_files, assistant_audio_path)
-        
-        logger.info(f"Chat completed in {processing_time}ms")
-        
-        # Step 8: Return response
+        # Step 4: Return response (conversation_service already saved to DB)
         return {
             "status": "success",
-            "user_message": text,
-            "user_emotion": emotion_result,
-            "assistant_response": assistant_text,
-            "assistant_audio_url": f"/api/v1/audio/{assistant_filename}",
+            "user_message": result['user_message'],
+            "user_emotion": result['user_emotion'],
+            "assistant_response": result['assistant_response'],
+            "assistant_audio_url": result['assistant_audio_url'],
             "conversation_id": conversation_id,
             "processing_time_ms": processing_time
         }
-    
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Chat processing failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"❌ Unexpected error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+    finally:
+        # Cleanup: Remove temporary audio file
+        if audio_temp_path and os.path.exists(audio_temp_path):
+            try:
+                os.remove(audio_temp_path)
+                logger.debug(f"🗑️ Cleaned up temp file: {audio_temp_path}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp file: {str(e)}")
 
 
 @app.post("/api/v1/session/end", response_model=EndConversationResponse)
