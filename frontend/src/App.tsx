@@ -1,76 +1,33 @@
-import { useEffect, useState, useRef } from 'react';
-import { AnimatePresence } from 'framer-motion';
-import { ChatInterface } from './components/Chat/ChatInterface';
-import { WaveVisualizer } from './components/AudioVisualizer/WaveVisualizer';
-import { AvatarScene } from './components/Avatar/Scene';
-import { VanishingCamera } from './components/Camera/VanishingCamera';
-import { SessionSummary } from './components/Dashboard/SessionSummary';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useEmotionStore } from './store/useEmotionStore';
-import { useSpeechRecognition } from './hooks/useSpeechRecognition';
-import { useWebcamRecorder } from './hooks/useWebcamRecorder';
+import { useAuthStore } from './store/useAuthStore';
+
+// Routes & Pages (Barrel Import)
+import {
+  Login,
+  Register,
+  ForgotPassword,
+  ResetPassword,
+  Landing,
+  Chat,
+  Dashboard,
+  History,
+  Profile
+} from './pages';
+
+// Components (Barrel Import)
+import {
+  ProtectedRoute,
+  PublicRoute,
+  TopNav,
+  MobileTabNav,
+  ToastContainer
+} from './components';
 
 function App() {
-  const { currentEmotion, setListening, isListening, startSession, sendMessage, conversationId, isLoading } = useEmotionStore();
-  const { transcript, isListening: recognitionActive, startListening, stopListening, resetTranscript } = useSpeechRecognition();
-
-  // Webcam Recording Hook (Records Camera + Audio)
-  const { isRecordingSession, startRecording, stopRecording, stream, recordedBlob } = useWebcamRecorder();
-
-  // Dashboard Logic
-  const [showSummary, setShowSummary] = useState(false);
-  const wasRecordingRef = useRef(false);
-  const sessionInitializedRef = useRef(false);
-
-  // Start backend session on mount (only once, even in StrictMode)
-  useEffect(() => {
-    if (!sessionInitializedRef.current) {
-      sessionInitializedRef.current = true;
-      startSession();
-    }
-  }, [startSession]);
-
-  // Sync recognition state with store
-  useEffect(() => {
-    setListening(recognitionActive);
-  }, [recognitionActive, setListening]);
-
-  // Track recording state to trigger summary
-  useEffect(() => {
-    if (isRecordingSession) {
-      wasRecordingRef.current = true;
-    } else if (wasRecordingRef.current) {
-      // Just stopped recording
-      wasRecordingRef.current = false;
-      setShowSummary(true);
-    }
-  }, [isRecordingSession]);
-
-  // Combined Handler: Toggles both "Listening" (AI) and "Recording" (Camera)
-  const toggleSession = () => {
-    if (recognitionActive || isRecordingSession) {
-      stopListening();
-      stopRecording();
-    } else {
-      setShowSummary(false); // Hide summary if starting new
-      startListening();
-      startRecording();
-    }
-  };
-
-  // Send video blob to backend when recording stops
-  useEffect(() => {
-    if (recordedBlob && conversationId) {
-      console.log('✅ Sending video blob to backend:', {
-        blobSize: recordedBlob.size,
-        conversationId
-      });
-
-      // Send the video blob with a placeholder text
-      // Backend will extract audio and transcribe it
-      sendMessage('', recordedBlob);
-    }
-  }, [recordedBlob, conversationId, sendMessage]);
-
+  const { currentEmotion } = useEmotionStore();
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     // Update CSS variables for Dark Therapeutic Theme
@@ -84,43 +41,79 @@ function App() {
   }, [currentEmotion]);
 
   return (
-    <div className="h-screen w-screen overflow-hidden relative bg-[var(--theme-bg)] transition-colors duration-[4000ms] flex flex-col items-center justify-between">
+    <Router>
+      <div className="h-screen w-screen overflow-hidden relative bg-[var(--theme-bg)] transition-colors duration-[4000ms] text-slate-200 font-sans">
 
-      {/* 1. Ambient Background (WaveVisualizer) - Ducking handled internally */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
-        <WaveVisualizer isListening={isListening} emotion={currentEmotion} />
+        {/* Navigation - Only show when authenticated */}
+        {isAuthenticated && <TopNav />}
+
+        {/* Main Content Area */}
+        <main className={`w-full ${isAuthenticated ? 'h-[calc(100vh-64px)]' : 'h-screen'} overflow-hidden relative`}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
+
+            <Route path="/login" element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            } />
+
+            <Route path="/register" element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            } />
+
+            <Route path="/forgot-password" element={
+              <PublicRoute>
+                <ForgotPassword />
+              </PublicRoute>
+            } />
+
+            <Route path="/reset-password" element={
+              <PublicRoute>
+                <ResetPassword />
+              </PublicRoute>
+            } />
+
+            {/* Protected Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/chat" element={
+              <ProtectedRoute>
+                <Chat />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/history" element={
+              <ProtectedRoute>
+                <History />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+
+        {/* Mobile Navigation - Only show when authenticated */}
+        {isAuthenticated && <MobileTabNav />}
+
+        {/* Global Toast Container */}
+        <ToastContainer />
       </div>
-
-      {/* 2. Central Avatar (The "Analyst") */}
-      <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-        <div className="w-[400px] h-[400px] opacity-90 transition-opacity duration-1000">
-          <AvatarScene />
-        </div>
-      </div>
-
-      {/* 3. Header */}
-      <div className="z-20 w-full max-w-3xl p-6 text-center mt-8 pointer-events-none">
-        <h1 className="text-3xl font-serif text-slate-200 tracking-wide opacity-80 text-shadow-glow">MECC</h1>
-        <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Empathetic Companion</p>
-      </div>
-
-      {/* 4. Interaction Area */}
-      <div className="z-20 w-full max-w-2xl px-4 pb-8 mb-4">
-        <ChatInterface
-          onMicClick={toggleSession}
-          isRecording={recognitionActive || isRecordingSession}
-        />
-      </div>
-
-      {/* 5. Privacy-First Webcam View */}
-      <VanishingCamera stream={stream} />
-
-      {/* 6. Session Summary Dashboard */}
-      <AnimatePresence>
-        {showSummary && <SessionSummary onClose={() => setShowSummary(false)} />}
-      </AnimatePresence>
-
-    </div>
+    </Router>
   );
 }
 

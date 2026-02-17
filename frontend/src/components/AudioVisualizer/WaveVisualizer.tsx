@@ -1,9 +1,10 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { type Emotion } from '../../store/useEmotionStore';
 
 interface WaveVisualizerProps {
     isListening: boolean;
     isAiSpeaking?: boolean; // New prop for AI state
-    emotion: 'happy' | 'sad' | 'angry' | 'neutral';
+    emotion: Emotion;
 }
 
 export const WaveVisualizer = forwardRef<HTMLCanvasElement, WaveVisualizerProps>(({ isListening, isAiSpeaking = false, emotion }, ref) => {
@@ -107,6 +108,10 @@ export const WaveVisualizer = forwardRef<HTMLCanvasElement, WaveVisualizerProps>
                 case 'happy': primary = '255, 200, 100'; secondary = '255, 140, 50'; break;
                 case 'sad': primary = '100, 200, 255'; secondary = '50, 100, 200'; break;
                 case 'angry': primary = '255, 80, 80'; secondary = '200, 40, 40'; break;
+                case 'calm': primary = '96, 165, 250'; secondary = '59, 130, 246'; break;
+                case 'fearful': primary = '251, 146, 60'; secondary = '249, 115, 22'; break;
+                case 'surprised': primary = '250, 204, 21'; secondary = '234, 179, 8'; break;
+                case 'disgust': primary = '163, 230, 53'; secondary = '132, 204, 22'; break;
                 default: primary = '200, 200, 220'; secondary = '120, 120, 140'; break;
             }
 

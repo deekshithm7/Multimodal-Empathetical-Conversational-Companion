@@ -25,32 +25,42 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import services
+# ... (imports)
 from services.emotion_service import get_emotion_service
 from services.llm_service import get_free_llm_service
 from services.tts_service import get_free_tts_service
 from services.transcription_service import get_whisper_service
-from services.feature_service import get_feature_service # NEW: Pre-load WavLM + RoBERTa
+from services.feature_service import get_feature_service
 from database import (
-    get_db, init_db,
+    get_db, init_db, User, Conversation,
     create_conversation, save_message, get_conversation_history,
     end_conversation as db_end_conversation, get_emotion_timeline
 )
+from utils.auth import get_current_user
+
+# Import Routers
+from routers import auth, users, analytics
 
 # Initialize FastAPI
 app = FastAPI(
     title="MECC API",
     description="Multimodal Empathetical Conversational Companion",
-    version="2.0.0"
+    version="2.1.0"
 )
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include Routers
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(analytics.router)
 
 # Global service instances
 emotion_service = None
@@ -63,17 +73,12 @@ AUDIO_STORAGE_DIR = os.environ.get('AUDIO_STORAGE_DIR', './audio_storage')
 os.makedirs(AUDIO_STORAGE_DIR, exist_ok=True)
 
 
-# Pydantic models
+# Pydantic models (retained for Start/End response)
 class StartConversationResponse(BaseModel):
     conversation_id: str
     session_id: str
     welcome_message: str
     welcome_audio_url: str
-
-
-class ChatRequest(BaseModel):
-    conversation_id: str
-    text: Optional[str] = None
 
 
 class EndConversationResponse(BaseModel):
@@ -89,7 +94,7 @@ class EndConversationResponse(BaseModel):
 async def startup_event():
     global emotion_service, llm_service, tts_service, whisper_service
     
-    logger.info("🚀 Starting MECC Backend API v2.0...")
+    logger.info("🚀 Starting MECC Backend API v2.1...")
     
     try:
         # Initialize database
@@ -102,11 +107,9 @@ async def startup_event():
         emotion_service = get_emotion_service(checkpoint_path=checkpoint_path, device=device)
         llm_service = get_free_llm_service(model_name="llama3.2:3b")
         
-        # TTS: Use OpenAI by default (set TTS_PROVIDER env var to change)
         tts_provider = os.environ.get('TTS_PROVIDER', 'openai')
         tts_service = get_free_tts_service(provider="piper", voice="voices/en_US-lessac-medium.onnx")
         
-        # Whisper: Use local model by default (set USE_WHISPER_API=true to use API)
         use_whisper_api = os.environ.get('USE_WHISPER_API', 'false').lower() == 'true'
         whisper_model_size = os.environ.get('WHISPER_MODEL_SIZE', 'base')
         whisper_service = get_whisper_service(
@@ -115,11 +118,9 @@ async def startup_event():
             device=device
         )
         
-        # Pre-load feature service encoders to avoid loading during first message
         feature_service = get_feature_service()
-        # IMPORTANT: Access properties to trigger lazy loading!
-        _ = feature_service.audio_encoder  # Triggers WavLM loading
-        _ = feature_service.text_encoder   # Triggers RoBERTa + Whisper loading
+        _ = feature_service.audio_encoder
+        _ = feature_service.text_encoder
         logger.info("✅ Feature service encoders pre-loaded")
         
         logger.info("✅ All services initialized successfully")
@@ -132,20 +133,15 @@ async def startup_event():
 # Helper functions
 def save_audio_file(audio: UploadFile, conversation_id: str) -> Dict:
     """Save uploaded audio file and return metadata"""
-    
-    # Generate unique filename
     file_id = str(uuid.uuid4())
     file_ext = os.path.splitext(audio.filename)[1] or '.wav'
     filename = f"{conversation_id}_{file_id}{file_ext}"
     file_path = os.path.join(AUDIO_STORAGE_DIR, filename)
     
-    # Save file
     with open(file_path, 'wb') as f:
         content = audio.file.read()
         f.write(content)
     
-    
-    # Get duration using soundfile (fast, no TorchCodec) with fallback
     duration = 0.0
     try:
         import soundfile as sf
@@ -153,7 +149,6 @@ def save_audio_file(audio: UploadFile, conversation_id: str) -> Dict:
         duration = info.duration
     except Exception as e:
         logger.warning(f"Failed to get audio duration: {e}")
-        # Continue without duration - not critical
     
     return {
         'path': file_path,
@@ -164,7 +159,6 @@ def save_audio_file(audio: UploadFile, conversation_id: str) -> Dict:
 
 
 def cleanup_temp_files(*files):
-    """Clean up temporary files"""
     for file_path in files:
         if file_path and os.path.exists(file_path):
             try:
@@ -177,10 +171,9 @@ def cleanup_temp_files(*files):
 
 @app.get("/health")
 async def health_check():
-    """Health check"""
     return {
         "status": "healthy",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "services": {
             "emotion_model": "loaded" if emotion_service else "not loaded",
             "llm": "loaded" if llm_service else "not loaded",
@@ -192,29 +185,22 @@ async def health_check():
 
 @app.post("/api/v1/session/start", response_model=StartConversationResponse)
 async def start_session(
-    user_id: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Start a new conversation session.
-    System initiates with a welcome message.
-    """
+    """Start a new conversation session (Authenticated)"""
     try:
-        # Create conversation in DB
-        conversation = create_conversation(db, user_id=user_id)
+        # Pass User ID (UUID)
+        conversation = create_conversation(db, user_id=current_user.id)
         
-        # Generate welcome message
         welcome_text = "Hello! I'm here to listen and support you. How are you feeling today?"
         
-        # Convert to speech
         audio_path = tts_service.generate_speech(welcome_text, emotion='neutral')
         
-        # Move audio to storage
         stored_filename = f"{conversation.session_id}_welcome.mp3"
         stored_path = os.path.join(AUDIO_STORAGE_DIR, stored_filename)
         shutil.copy(audio_path, stored_path)
         
-        # Save welcome message to DB
         save_message(
             db,
             conversation_id=str(conversation.id),
@@ -223,7 +209,6 @@ async def start_session(
             audio_data={'path': stored_path, 'duration': 3.0}
         )
         
-        # Cleanup temp file
         cleanup_temp_files(audio_path)
         
         return {
@@ -244,33 +229,33 @@ async def send_message(
     audio: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
     background_tasks: BackgroundTasks = None,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Process user message (audio and/or text) and generate empathetic response.
+    """Process user message (Authenticated)"""
     
-    Delegates all business logic to conversation_service orchestrator.
-    """
+    # Verify ownership
+    convo = db.query(Conversation).filter(
+        Conversation.id == uuid.UUID(conversation_id),
+        Conversation.user_id == current_user.id
+    ).first()
+    
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found or access denied")
+        
     start_time = datetime.now()
     logger.info(f"📨 Received message for conversation: {conversation_id}")
     
-    # Validate input
     if not audio and not text:
-        logger.error("No audio or text provided")
         raise HTTPException(status_code=400, detail="Must provide audio or text")
     
     audio_temp_path = None
     
     try:
-        # Step 1: Save uploaded audio file (if provided)
         if audio:
-            logger.info(f"Saving audio: {audio.filename}")
             user_audio_data = save_audio_file(audio, conversation_id)
             audio_temp_path = user_audio_data['path']
-            logger.info(f"✅ Audio saved: {audio_temp_path}")
         
-        # Step 2: Delegate to conversation service (THE BOSS!)
-        logger.info("🚀 Delegating to conversation_service...")
         from services.conversation_service import get_conversation_service
         conversation_service = get_conversation_service()
         
@@ -281,16 +266,11 @@ async def send_message(
             db_session=db
         )
         
-        # Check for errors
         if result['status'] == 'error':
-            logger.error(f"❌ Processing failed: {result['error']}")
             raise HTTPException(status_code=500, detail=result['error'])
         
-        # Step 3: Calculate processing time
         processing_time = int((datetime.now() - start_time).total_seconds() * 1000)
-        logger.info(f"✅ Message processed in {processing_time}ms")
         
-        # Step 4: Return response (conversation_service already saved to DB)
         return {
             "status": "success",
             "user_message": result['user_message'],
@@ -307,69 +287,53 @@ async def send_message(
         logger.error(f"❌ Unexpected error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
     finally:
-        # Cleanup: Remove temporary audio file
         if audio_temp_path and os.path.exists(audio_temp_path):
-            try:
-                os.remove(audio_temp_path)
-                logger.debug(f"🗑️ Cleaned up temp file: {audio_temp_path}")
-            except Exception as e:
-                logger.warning(f"Failed to delete temp file: {str(e)}")
+            cleanup_temp_files(audio_temp_path)
 
 
 @app.post("/api/v1/session/end", response_model=EndConversationResponse)
 async def end_session(
     conversation_id: str = Form(...),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    End conversation and generate summary.
-    """
+    """End conversation (Authenticated)"""
+    
+    # Verify ownership
+    convo = db.query(Conversation).filter(
+        Conversation.id == uuid.UUID(conversation_id),
+        Conversation.user_id == current_user.id
+    ).first()
+    
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
     try:
-        logger.info(f"Ending session: {conversation_id}")
-        
-        # Get conversation history
         history = get_conversation_history(db, conversation_id, limit=100)
-        logger.info(f"Retrieved {len(history)} messages from conversation")
-        
-        # Get emotion timeline
         timeline = get_emotion_timeline(db, conversation_id)
-        logger.info(f"Retrieved {len(timeline)} emotion timeline entries")
         
-        # Format for LLM
         conversation_context = [
             {'role': msg['role'], 'content': msg['content']}
             for msg in history
         ]
-        logger.info(f"Prepared {len(conversation_context)} messages for summary")
         
-        # Generate summary
         summary_text = llm_service.generate_session_summary(
             conversation_history=conversation_context,
             emotion_timeline=timeline
         )
         
-        # Convert summary to speech
         summary_audio_path = tts_service.generate_speech(summary_text, emotion='neutral')
         
-        # Store summary audio
         summary_filename = f"{conversation_id}_summary.mp3"
         summary_stored_path = os.path.join(AUDIO_STORAGE_DIR, summary_filename)
         shutil.copy(summary_audio_path, summary_stored_path)
         
-        # Mark conversation as completed
         db_end_conversation(db, conversation_id)
         
-        # Get conversation details
-        from database import Conversation
-        conversation = db.query(Conversation).filter(
-            Conversation.id == uuid.UUID(conversation_id)
-        ).first()
-        
         duration_minutes = 0
-        if conversation and conversation.ended_at and conversation.started_at:
-            duration_minutes = (conversation.ended_at - conversation.started_at).total_seconds() / 60
+        if convo.ended_at and convo.started_at:
+            duration_minutes = (convo.ended_at - convo.started_at).total_seconds() / 60
         
-        # Cleanup temp
         cleanup_temp_files(summary_audio_path)
         
         return {
@@ -387,22 +351,29 @@ async def end_session(
 
 @app.get("/api/v1/audio/{filename}")
 async def get_audio(filename: str):
-    """Serve audio files"""
+    """Serve audio files (Public for now, or use signed URLs in prod)"""
     file_path = os.path.join(AUDIO_STORAGE_DIR, filename)
-    
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Audio file not found")
-    
-    return FileResponse(
-        file_path,
-        media_type="audio/mpeg",
-        filename=filename
-    )
+    return FileResponse(file_path, media_type="audio/mpeg", filename=filename)
 
 
 @app.get("/api/v1/conversation/{conversation_id}/history")
-async def get_history(conversation_id: str, db: Session = Depends(get_db)):
-    """Get conversation history"""
+async def get_history(
+    conversation_id: str, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get conversation history (Authenticated)"""
+    # Verify ownership
+    convo = db.query(Conversation).filter(
+        Conversation.id == uuid.UUID(conversation_id),
+        Conversation.user_id == current_user.id
+    ).first()
+    
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
     try:
         history = get_conversation_history(db, conversation_id, limit=50)
         return {
@@ -414,8 +385,21 @@ async def get_history(conversation_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/conversation/{conversation_id}/emotions")
-async def get_emotions(conversation_id: str, db: Session = Depends(get_db)):
-    """Get emotion timeline for a conversation"""
+async def get_emotions(
+    conversation_id: str, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get emotion timeline (Authenticated)"""
+    # Verify ownership
+    convo = db.query(Conversation).filter(
+        Conversation.id == uuid.UUID(conversation_id),
+        Conversation.user_id == current_user.id
+    ).first()
+    
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
     try:
         timeline = get_emotion_timeline(db, conversation_id)
         return {
@@ -428,18 +412,15 @@ async def get_emotions(conversation_id: str, db: Session = Depends(get_db)):
 
 @app.get("/")
 async def root():
-    """API root"""
     return {
-        "message": "MECC API v2.0",
+        "message": "MECC API v2.1",
         "status": "running",
         "docs": "/docs",
         "endpoints": {
-            "start_conversation": "/api/v1/conversation/start",
-            "chat": "/api/v1/chat/message",
-            "end_conversation": "/api/v1/conversation/end",
-            "get_audio": "/api/v1/audio/{filename}",
-            "history": "/api/v1/conversation/{id}/history",
-            "emotions": "/api/v1/conversation/{id}/emotions"
+            "auth": "/api/v1/auth",
+            "users": "/api/v1/users",
+            "analytics": "/api/v1/analytics",
+            "session": "/api/v1/session"
         }
     }
 

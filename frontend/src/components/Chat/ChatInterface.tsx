@@ -7,9 +7,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 interface ChatInterfaceProps {
     onMicClick: () => void;
     isRecording: boolean;
+    transcript?: string;
 }
 
-export const ChatInterface = ({ onMicClick, isRecording }: ChatInterfaceProps) => {
+export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInterfaceProps) => {
     const { messages, isLoading, endSession, conversationId } = useEmotionStore();
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -27,10 +28,10 @@ export const ChatInterface = ({ onMicClick, isRecording }: ChatInterfaceProps) =
     };
 
     return (
-        <div className="flex flex-col h-[500px] w-full max-w-xl mx-auto items-center justify-end pb-12 relative">
+        <div className="flex flex-col w-full max-w-2xl mx-auto h-full relative">
 
-            {/* Messages Overlay (Translucent Bubbles) */}
-            <div className="absolute top-0 w-full h-[380px] overflow-y-auto px-6 py-4 space-y-3 scrollbar-hide mask-gradient-top">
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0 scroll-smooth">
                 <AnimatePresence mode="popLayout">
                     {messages.map((msg) => (
                         <motion.div
@@ -41,7 +42,7 @@ export const ChatInterface = ({ onMicClick, isRecording }: ChatInterfaceProps) =
                                 "max-w-[85%] px-5 py-3 rounded-3xl text-sm leading-relaxed shadow-sm font-medium",
                                 msg.sender === 'user'
                                     ? "ml-auto bg-white/70 text-slate-700 rounded-br-sm border border-white/50"
-                                    : "mr-auto bg-[rgba(255,255,255,0.4)] text-slate-800 rounded-bl-sm border border-white/40"
+                                    : "mr-auto bg-white/10 backdrop-blur-md text-slate-100 rounded-bl-sm border border-white/10"
                             )}
                         >
                             <div>{msg.text}</div>
@@ -61,45 +62,63 @@ export const ChatInterface = ({ onMicClick, isRecording }: ChatInterfaceProps) =
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="mr-auto bg-[rgba(255,255,255,0.4)] text-slate-800 rounded-bl-sm border border-white/40 px-5 py-3 rounded-3xl max-w-[85%]"
+                            className="mr-auto bg-white/10 backdrop-blur-md text-slate-100 rounded-bl-sm border border-white/10 px-5 py-3 rounded-3xl max-w-[85%]"
                         >
                             <Loader2 className="animate-spin" size={20} />
                         </motion.div>
                     )}
                 </AnimatePresence>
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} className="h-4" />
             </div>
 
-            {/* End Session Button (top right) */}
-            {conversationId && messages.length > 1 && (
-                <button
-                    onClick={endSession}
-                    disabled={isLoading}
-                    className="absolute top-4 right-4 z-50 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-full text-xs font-medium border border-white/30 flex items-center gap-2 transition-all disabled:opacity-50"
-                >
-                    <LogOut size={14} />
-                    End Session
-                </button>
-            )}
+            {/* Controls Area */}
+            <div className="flex flex-col items-center justify-center p-6 z-50 relative shrink-0">
+                {/* Live Transcript Overlay */}
+                <div className="h-8 mb-4">
+                    <AnimatePresence>
+                        {isRecording && transcript && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="px-4 py-2 bg-black/60 backdrop-blur-md rounded-full border border-white/10 max-w-md truncate text-center"
+                            >
+                                <p className="text-sm text-slate-200">{transcript}</p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
 
-            {/* Central Multimodal Button */}
-            <button
-                onClick={onMicClick}
-                disabled={isLoading}
-                className={clsx(
-                    "relative z-50 p-6 rounded-full transition-all duration-500 flex items-center justify-center shadow-xl border-4 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
-                    isRecording
-                        ? "bg-red-500 text-white border-red-300 animate-pulse shadow-[0_10px_40px_rgba(239,68,68,0.4)]"
-                        : "bg-white text-slate-700 border-white shadow-[0_10px_40px_rgba(200,195,180,0.4)] hover:shadow-[0_15px_50px_rgba(200,195,180,0.6)]"
+                {/* Central Multimodal Button */}
+                <button
+                    onClick={onMicClick}
+                    disabled={isLoading}
+                    className={clsx(
+                        "relative p-6 rounded-full transition-all duration-500 flex items-center justify-center shadow-2xl border-4 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
+                        isRecording
+                            ? "bg-red-500 text-white border-red-400 animate-pulse shadow-red-500/20"
+                            : "bg-white text-slate-800 border-slate-200 shadow-slate-200/20 hover:shadow-slate-200/40"
+                    )}
+                >
+                    {isRecording ? <Square size={32} fill="currentColor" /> : <AudioLines size={36} strokeWidth={2} />}
+                </button>
+                <p className="mt-4 text-xs font-semibold tracking-widest text-slate-400 uppercase opacity-60">
+                    {isLoading ? "Processing..." : isRecording ? "Recording • Listening" : "Tap to Start"}
+                </p>
+
+                {/* End Session Button (absolute in this container) */}
+                {conversationId && messages.length > 1 && (
+                    <button
+                        onClick={endSession}
+                        disabled={isLoading}
+                        className="absolute right-0 bottom-10 px-4 py-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full text-xs font-medium flex items-center gap-2 transition-all"
+                    >
+                        <LogOut size={14} />
+                        End Session
+                    </button>
                 )}
-            >
-                {isRecording ? <Square size={32} fill="currentColor" /> : <AudioLines size={36} strokeWidth={2} />}
-            </button>
-            <p className="mt-4 text-xs font-semibold tracking-widest text-slate-400 uppercase opacity-60">
-                {isLoading ? "Processing..." : isRecording ? "Recording • Listening" : "Tap to Start"}
-            </p>
+            </div>
 
         </div>
     );
 };
-

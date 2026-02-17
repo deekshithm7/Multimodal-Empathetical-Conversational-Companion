@@ -31,13 +31,35 @@ Base = declarative_base()
 
 
 # Models
+class User(Base):
+    """User account"""
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    name = Column(String(255), nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'email': self.email,
+            'name': self.name,
+            'is_active': self.is_active
+        }
+
+
 class Conversation(Base):
     """Conversation session"""
     __tablename__ = "conversations"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(String(255), unique=True, nullable=False, index=True)
-    user_id = Column(String(255), nullable=True, index=True)
+    
+    # Linked to User (nullable for guest sessions if needed, though we will largely enforce auth)
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=True) # Keeping it loose for now to recognize strings vs uuids in transition, or strict? Let's go strict UUID for new system.
     
     started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     ended_at = Column(DateTime, nullable=True)
@@ -54,7 +76,7 @@ class Conversation(Base):
         return {
             'id': str(self.id),
             'session_id': self.session_id,
-            'user_id': self.user_id,
+            'user_id': str(self.user_id) if self.user_id else None,
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'ended_at': self.ended_at.isoformat() if self.ended_at else None,
             'total_messages': self.total_messages,

@@ -1,6 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
 
-export const useWebcamRecorder = () => {
+interface UseWebcamRecorderProps {
+  onRecordingComplete?: (blob: Blob) => void;
+}
+
+export const useWebcamRecorder = ({ onRecordingComplete }: UseWebcamRecorderProps = {}) => {
   const [isRecordingSession, setIsRecordingSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -31,10 +35,24 @@ export const useWebcamRecorder = () => {
       setRecordedBlob(null);
       setError(null);
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
+      let mediaStream: MediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: true, // Try video first
+          audio: true
+        });
+      } catch (err: any) {
+        if (err.name === 'NotFoundError' || err.name === 'NotAllowedError') {
+          console.warn("Video device not found or denied, falling back to audio only");
+          // Fallback to audio only
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: true
+          });
+        } else {
+          throw err;
+        }
+      }
 
       streamRef.current = mediaStream;
       setStream(mediaStream);
@@ -54,8 +72,13 @@ export const useWebcamRecorder = () => {
         const blob = new Blob(chunksRef.current, { type: finalMimeType });
         chunksRef.current = [];
 
-        // Save blob to state so App.tsx can send it
+        // Save blob to state
         setRecordedBlob(blob);
+
+        // Trigger callback if provided
+        if (onRecordingComplete) {
+          onRecordingComplete(blob);
+        }
 
         // Stop all tracks
         if (streamRef.current) {
@@ -72,7 +95,7 @@ export const useWebcamRecorder = () => {
       console.error("Failed to start webcam recording:", error);
       setError("Could not access camera/microphone. Please check permissions.");
     }
-  }, []);
+  }, [onRecordingComplete]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {

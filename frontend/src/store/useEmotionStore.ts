@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { api } from '../api/client';
 import type { MessageResponse, SessionEndResponse } from '../api/client';
 
-export type Emotion = 'neutral' | 'happy' | 'sad' | 'angry';
+export type Emotion = 'neutral' | 'happy' | 'sad' | 'angry' | 'calm' | 'fearful' | 'surprised' | 'disgust';
 
 export interface Message {
     id: string;

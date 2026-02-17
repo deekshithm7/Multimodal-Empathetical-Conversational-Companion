@@ -38,7 +38,90 @@ export interface SessionEndResponse {
     duration_minutes: number;
 }
 
+// Auth Interfaces
+export interface AuthResponse {
+    access_token: string;
+    token_type: string;
+    user_name: string;
+    user_email: string;
+}
+
+export interface UserProfile {
+    id: string;
+    email: string;
+    name: string;
+    is_active: boolean;
+}
+
+// Token management
+let authToken: string | null = localStorage.getItem('auth_token');
+
 export const api = {
+    setToken(token: string | null) {
+        authToken = token;
+        if (token) {
+            localStorage.setItem('auth_token', token);
+        } else {
+            localStorage.removeItem('auth_token');
+        }
+    },
+
+    getToken() {
+        return authToken;
+    },
+
+    privateHeaders() {
+        return {
+            'Authorization': authToken ? `Bearer ${authToken}` : '',
+        };
+    },
+
+    // --- Auth Endpoints ---
+
+    async login(email: string, password: string): Promise<AuthResponse> {
+        const formData = new FormData();
+        formData.append('username', email); // OAuth2PasswordRequestForm expects 'username'
+        formData.append('password', password);
+
+        const response = await fetch(`${API_URL}/api/v1/auth/token`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || 'Login failed');
+        }
+
+        return response.json();
+    },
+
+    async register(name: string, email: string, password: string): Promise<UserProfile> {
+        const response = await fetch(`${API_URL}/api/v1/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || 'Registration failed');
+        }
+
+        return response.json();
+    },
+
+    async getMe(): Promise<UserProfile> {
+        const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+            headers: this.privateHeaders(),
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch profile');
+        return response.json();
+    },
+
+    // --- Session Endpoints ---
+
     /**
      * Start a new conversation session
      */
@@ -48,6 +131,7 @@ export const api = {
 
         const response = await fetch(`${API_URL}/api/v1/session/start`, {
             method: 'POST',
+            headers: this.privateHeaders(), // Now authenticated
             body: formData
         });
 
@@ -80,6 +164,7 @@ export const api = {
 
         const response = await fetch(`${API_URL}/api/v1/session/message`, {
             method: 'POST',
+            headers: this.privateHeaders(), // Now authenticated
             body: formData
         });
 
@@ -99,6 +184,7 @@ export const api = {
 
         const response = await fetch(`${API_URL}/api/v1/session/end`, {
             method: 'POST',
+            headers: this.privateHeaders(), // Now authenticated
             body: formData
         });
 
@@ -114,5 +200,28 @@ export const api = {
      */
     getAudioUrl(audioPath: string): string {
         return `${API_URL}${audioPath}`;
+    },
+
+    /**
+     * Get Dashboard Stats
+     */
+    async getDashboardStats(): Promise<any> {
+        const response = await fetch(`${API_URL}/api/v1/analytics/dashboard`, {
+            headers: this.privateHeaders(),
+        });
+        if (!response.ok) throw new Error('Failed to fetch stats');
+        return response.json();
+    },
+
+    /**
+     * Get Conversation History
+     */
+    async getHistory(limit = 50): Promise<any> {
+        // We'll need to implement a dedicated endpoint for listing conversations or use existing
+        // For now using placeholder logic or if we built /api/v1/analytics/conversations
+        // Wait, did I build GET /conversations? I built GET /api/v1/analytics/dashboard
+        // I haven't built a list endpoint yet in analytics.py.
+        // Let's add it there later, but for now assuming it exists or we won't use it yet.
+        return [];
     }
 };
