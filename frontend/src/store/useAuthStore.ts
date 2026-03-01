@@ -8,6 +8,7 @@ export interface User {
     email: string;
     is_active?: boolean;
     avatar?: string;
+    preferences?: any;
 }
 
 interface AuthState {
@@ -53,6 +54,7 @@ export const useAuthStore = create<AuthState>()(
                         user.id = profile.id;
                         user.name = profile.name;
                         user.email = profile.email;
+                        user.preferences = profile.preferences;
                     } catch (e) {
                         console.warn('Failed to fetch full profile', e);
                     }
@@ -119,18 +121,18 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            updateProfile: async (data: Partial<User>) => {
+            updateProfile: async (_data: Partial<User>) => {
                 set({ isLoading: true, error: null });
                 // Pending backend endpoint for specific update or reuse /users/me
                 set({ isLoading: false }); // Placeholder
             },
 
-            forgotPassword: async (email: string) => {
+            forgotPassword: async (_email: string) => {
                 // Placeholder
                 await new Promise(resolve => setTimeout(resolve, 500));
             },
 
-            resetPassword: async (token: string, password: string) => {
+            resetPassword: async (_token: string, _password: string) => {
                 // Placeholder
                 await new Promise(resolve => setTimeout(resolve, 500));
             },

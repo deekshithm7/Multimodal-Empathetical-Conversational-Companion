@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Mic, Video, Activity, Wifi } from 'lucide-react';
 import { VanishingCamera } from '../Camera/VanishingCamera';
 import { WaveVisualizer } from '../AudioVisualizer/WaveVisualizer';

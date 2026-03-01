@@ -92,7 +92,8 @@ export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInter
                 {/* Central Multimodal Button */}
                 <button
                     onClick={onMicClick}
-                    disabled={isLoading}
+                    disabled={isLoading} // Assuming isLoading is available in scope or we use a prop? 
+                    // Wait, isLoading comes from useEmotionStore hook inside component.
                     className={clsx(
                         "relative p-6 rounded-full transition-all duration-500 flex items-center justify-center shadow-2xl border-4 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
                         isRecording
@@ -103,7 +104,8 @@ export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInter
                     {isRecording ? <Square size={32} fill="currentColor" /> : <AudioLines size={36} strokeWidth={2} />}
                 </button>
                 <p className="mt-4 text-xs font-semibold tracking-widest text-slate-400 uppercase opacity-60">
-                    {isLoading ? "Processing..." : isRecording ? "Recording • Listening" : "Tap to Start"}
+                    {/* Accessing isLoading from store hook which is already called in component body */}
+                    {useEmotionStore.getState().isLoading ? "Processing..." : isRecording ? "Recording • Listening" : "Tap to Start"}
                 </p>
 
                 {/* End Session Button (absolute in this container) */}

@@ -3,14 +3,11 @@ import {
     User,
     Settings,
     Shield,
-    Bell,
     Download,
     Trash2,
-    Save,
     Moon,
     Volume2,
-    Globe,
-    Clock
+    MessageSquare
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '../store/useAuthStore';
@@ -19,12 +16,22 @@ import { Input } from '../components/UI/Input';
 import { ConfirmationModal } from '../components/UI/ConfirmationModal';
 import { useToast } from '../components/UI/Toast';
 import { clsx } from 'clsx';
+import { api } from '../api/client';
 
 export const Profile = () => {
     const { user, updateProfile, logout } = useAuthStore();
     const toast = useToast();
     const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'privacy'>('profile');
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Preferences State
+    const [preferences, setPreferences] = useState({
+        response_style: user?.preferences?.response_style || 'warm',
+        theme: user?.preferences?.theme || 'dark', // actually this might be global?
+        voice_enabled: user?.preferences?.voice_enabled ?? true,
+        store_history: user?.preferences?.store_history ?? true,
+        share_data: user?.preferences?.share_data ?? false,
+    });
 
     const { register, handleSubmit } = useForm({
         defaultValues: {
@@ -34,8 +41,29 @@ export const Profile = () => {
     });
 
     const onSubmitProfile = async (data: any) => {
-        await updateProfile(data);
-        toast.success('Profile updated successfully');
+        try {
+            const updatedUser = await api.updateProfile(data);
+            updateProfile(updatedUser);
+            toast.success('Profile updated successfully');
+        } catch (error) {
+            console.error("Profile update failed", error);
+            toast.error("Failed to update profile");
+        }
+    };
+
+    const handlePreferenceChange = (key: string, value: any) => {
+        setPreferences(prev => ({ ...prev, [key]: value }));
+    };
+
+    const savePreferences = async () => {
+        try {
+            const updatedUser = await api.updatePreferences(preferences);
+            updateProfile(updatedUser); // Update store with new prefs
+            toast.success('Preferences saved');
+        } catch (error) {
+            console.error("Preferences update failed", error);
+            toast.error("Failed to save preferences");
+        }
     };
 
     const tabs = [
@@ -126,10 +154,23 @@ export const Profile = () => {
                                         <MessageSquare size={20} className="text-violet-400" /> Response Style
                                     </h3>
                                     <div className="grid md:grid-cols-3 gap-3">
-                                        {['Warm & Encouraging', 'Neutral & Objective', 'Direct & Concise'].map((style) => (
-                                            <label key={style} className="flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
-                                                <span className="text-sm text-slate-300">{style}</span>
-                                                <input type="radio" name="style" className="accent-teal-500" defaultChecked={style.includes('Warm')} />
+                                        {[
+                                            { id: 'warm', label: 'Warm & Encouraging' },
+                                            { id: 'neutral', label: 'Neutral & Objective' },
+                                            { id: 'direct', label: 'Direct & Concise' }
+                                        ].map((style) => (
+                                            <label key={style.id} className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors ${preferences.response_style === style.id
+                                                ? 'bg-teal-500/10 border-teal-500/20'
+                                                : 'bg-white/5 border-white/10 hover:bg-white/10'
+                                                }`}>
+                                                <span className="text-sm text-slate-300">{style.label}</span>
+                                                <input
+                                                    type="radio"
+                                                    name="style"
+                                                    className="accent-teal-500"
+                                                    checked={preferences.response_style === style.id}
+                                                    onChange={() => handlePreferenceChange('response_style', style.id)}
+                                                />
                                             </label>
                                         ))}
                                     </div>
@@ -149,8 +190,13 @@ export const Profile = () => {
                                                     <p className="text-xs text-slate-500">Adaptive therapeutic dark theme</p>
                                                 </div>
                                             </div>
-                                            <div className="w-10 h-6 bg-teal-500/20 rounded-full relative cursor-pointer border border-teal-500/50">
-                                                <div className="w-4 h-4 bg-teal-400 rounded-full absolute top-0.5 right-0.5 shadow-sm" />
+                                            <div
+                                                className={`w-10 h-6 rounded-full relative cursor-pointer border transition-colors ${preferences.theme === 'dark' ? 'bg-teal-500/20 border-teal-500/50' : 'bg-white/10 border-white/20'
+                                                    }`}
+                                                onClick={() => handlePreferenceChange('theme', preferences.theme === 'dark' ? 'light' : 'dark')}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full absolute top-0.5 shadow-sm transition-all ${preferences.theme === 'dark' ? 'bg-teal-400 right-0.5' : 'bg-slate-400 left-0.5'
+                                                    }`} />
                                             </div>
                                         </div>
 
@@ -162,15 +208,20 @@ export const Profile = () => {
                                                     <p className="text-xs text-slate-500">Enable AI voice responses</p>
                                                 </div>
                                             </div>
-                                            <div className="w-10 h-6 bg-teal-500/20 rounded-full relative cursor-pointer border border-teal-500/50">
-                                                <div className="w-4 h-4 bg-teal-400 rounded-full absolute top-0.5 right-0.5 shadow-sm" />
+                                            <div
+                                                className={`w-10 h-6 rounded-full relative cursor-pointer border transition-colors ${preferences.voice_enabled ? 'bg-teal-500/20 border-teal-500/50' : 'bg-white/10 border-white/20'
+                                                    }`}
+                                                onClick={() => handlePreferenceChange('voice_enabled', !preferences.voice_enabled)}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full absolute top-0.5 shadow-sm transition-all ${preferences.voice_enabled ? 'bg-teal-400 right-0.5' : 'bg-slate-400 left-0.5'
+                                                    }`} />
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="pt-4 flex justify-end">
-                                    <Button>Save Preferences</Button>
+                                    <Button onClick={savePreferences}>Save Preferences</Button>
                                 </div>
 
                             </div>
@@ -194,8 +245,13 @@ export const Profile = () => {
                                                 <p className="text-sm font-medium text-slate-200">Store Emotion History</p>
                                                 <p className="text-xs text-slate-500">Allow storing emotional trends for dashboard analytics</p>
                                             </div>
-                                            <div className="w-10 h-6 bg-teal-500/20 rounded-full relative cursor-pointer border border-teal-500/50">
-                                                <div className="w-4 h-4 bg-teal-400 rounded-full absolute top-0.5 right-0.5 shadow-sm" />
+                                            <div
+                                                className={`w-10 h-6 rounded-full relative cursor-pointer border transition-colors ${preferences.store_history ? 'bg-teal-500/20 border-teal-500/50' : 'bg-white/10 border-white/20'
+                                                    }`}
+                                                onClick={() => handlePreferenceChange('store_history', !preferences.store_history)}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full absolute top-0.5 shadow-sm transition-all ${preferences.store_history ? 'bg-teal-400 right-0.5' : 'bg-slate-400 left-0.5'
+                                                    }`} />
                                             </div>
                                         </div>
 
@@ -204,11 +260,19 @@ export const Profile = () => {
                                                 <p className="text-sm font-medium text-slate-200">Improve AI Model</p>
                                                 <p className="text-xs text-slate-500">Share anonymized session data to improve empathy</p>
                                             </div>
-                                            <div className="w-10 h-6 bg-white/10 rounded-full relative cursor-pointer border border-white/10">
-                                                <div className="w-4 h-4 bg-slate-400 rounded-full absolute top-0.5 left-0.5 shadow-sm" />
+                                            <div
+                                                className={`w-10 h-6 rounded-full relative cursor-pointer border transition-colors ${preferences.share_data ? 'bg-teal-500/20 border-teal-500/50' : 'bg-white/10 border-white/20'
+                                                    }`}
+                                                onClick={() => handlePreferenceChange('share_data', !preferences.share_data)}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full absolute top-0.5 shadow-sm transition-all ${preferences.share_data ? 'bg-teal-400 right-0.5' : 'bg-slate-400 left-0.5'
+                                                    }`} />
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                                <div className="pt-4 flex justify-end">
+                                    <Button onClick={savePreferences}>Save Privacy Settings</Button>
                                 </div>
 
                                 <div className="pt-6 border-t border-white/5">

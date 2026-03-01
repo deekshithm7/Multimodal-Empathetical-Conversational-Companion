@@ -12,24 +12,17 @@ import { useState } from 'react';
 import { clsx } from 'clsx';
 import { type Emotion } from '../../store/useEmotionStore';
 
-// Mock data generator
-const generateData = (days: number) => {
-    const data = [];
-    const now = new Date();
-    for (let i = days; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        data.push({
-            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            happy: Math.floor(Math.random() * 40) + 10,
-            sad: Math.floor(Math.random() * 30) + 5,
-            angry: Math.floor(Math.random() * 20) + 0,
-            calm: Math.floor(Math.random() * 50) + 20,
-            fearful: Math.floor(Math.random() * 15) + 0,
-        });
-    }
-    return data;
-};
+export interface EmotionTimelineProps {
+    data: Array<{
+        date: string;
+        happy?: number;
+        sad?: number;
+        angry?: number;
+        calm?: number;
+        fearful?: number;
+        [key: string]: string | number | undefined;
+    }>;
+}
 
 const emotionConfig = [
     { key: 'happy', color: '#4ade80', label: 'Happy' },
@@ -39,11 +32,8 @@ const emotionConfig = [
     { key: 'fearful', color: '#fb923c', label: 'Fearful' },
 ];
 
-export const EmotionTimeline = () => {
-    const [timeRange, setTimeRange] = useState<'7d' | '30d'>('7d');
+export const EmotionTimeline = ({ data }: EmotionTimelineProps) => {
     const [visibleEmotions, setVisibleEmotions] = useState<string[]>(['happy', 'sad', 'angry', 'calm']);
-
-    const data = generateData(timeRange === '7d' ? 7 : 30);
 
     const toggleEmotion = (emotion: string) => {
         setVisibleEmotions(prev =>
@@ -57,28 +47,6 @@ export const EmotionTimeline = () => {
         <div className="w-full h-full flex flex-col">
             <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
                 <h3 className="text-lg font-semibold text-slate-200">Emotion Timeline</h3>
-
-                {/* Time Range Filter */}
-                <div className="flex bg-white/5 rounded-lg p-1">
-                    <button
-                        onClick={() => setTimeRange('7d')}
-                        className={clsx(
-                            "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                            timeRange === '7d' ? "bg-teal-500/20 text-teal-400" : "text-slate-400 hover:text-slate-200"
-                        )}
-                    >
-                        7 Days
-                    </button>
-                    <button
-                        onClick={() => setTimeRange('30d')}
-                        className={clsx(
-                            "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                            timeRange === '30d' ? "bg-teal-500/20 text-teal-400" : "text-slate-400 hover:text-slate-200"
-                        )}
-                    >
-                        30 Days
-                    </button>
-                </div>
             </div>
 
             {/* Legend / Toggles */}

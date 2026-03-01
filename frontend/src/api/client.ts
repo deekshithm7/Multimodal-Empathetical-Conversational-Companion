@@ -51,6 +51,7 @@ export interface UserProfile {
     email: string;
     name: string;
     is_active: boolean;
+    preferences?: any;
 }
 
 // Token management
@@ -216,12 +217,66 @@ export const api = {
     /**
      * Get Conversation History
      */
-    async getHistory(limit = 50): Promise<any> {
-        // We'll need to implement a dedicated endpoint for listing conversations or use existing
-        // For now using placeholder logic or if we built /api/v1/analytics/conversations
-        // Wait, did I build GET /conversations? I built GET /api/v1/analytics/dashboard
-        // I haven't built a list endpoint yet in analytics.py.
-        // Let's add it there later, but for now assuming it exists or we won't use it yet.
-        return [];
+    async getHistory(limit = 20, offset = 0): Promise<any> {
+        const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+        const response = await fetch(`${API_URL}/api/v1/analytics/history?${params}`, {
+            headers: this.privateHeaders(),
+        });
+        if (!response.ok) throw new Error('Failed to fetch history');
+        return response.json();
+    },
+
+    /**
+     * Get Session Detail
+     */
+    async getSessionDetail(sessionId: string): Promise<any> {
+        const response = await fetch(`${API_URL}/api/v1/analytics/session/${sessionId}`, {
+            headers: this.privateHeaders(),
+        });
+        if (!response.ok) throw new Error('Failed to fetch session detail');
+        return response.json();
+    },
+
+    /**
+     * Delete a session
+     */
+    async deleteSession(sessionId: string): Promise<void> {
+        const response = await fetch(`${API_URL}/api/v1/analytics/session/${sessionId}`, {
+            method: 'DELETE',
+            headers: this.privateHeaders(),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete session');
+        }
+        return response.json();
+    },
+
+    /**
+     * Update User Profile
+     */
+    async updateProfile(data: Partial<UserProfile>): Promise<UserProfile> {
+        const response = await fetch(`${API_URL}/api/v1/users/me`, {
+            method: 'PUT',
+            headers: {
+                ...this.privateHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || 'Failed to update profile');
+        }
+
+        return response.json();
+    },
+
+    /**
+     * Update User Preferences
+     */
+    async updatePreferences(preferences: Record<string, any>): Promise<UserProfile> {
+        return this.updateProfile({ preferences } as any);
     }
 };

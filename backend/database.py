@@ -40,6 +40,7 @@ class User(Base):
     name = Column(String(255), nullable=True)
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
+    preferences = Column(JSON, default=dict)  # UI preferences (theme, voice, etc.)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -47,7 +48,8 @@ class User(Base):
             'id': str(self.id),
             'email': self.email,
             'name': self.name,
-            'is_active': self.is_active
+            'is_active': self.is_active,
+            'preferences': self.preferences
         }
 
 

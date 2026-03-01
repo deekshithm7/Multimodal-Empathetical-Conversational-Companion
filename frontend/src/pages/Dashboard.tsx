@@ -13,31 +13,77 @@ import { EmotionTimeline } from '../components/Dashboard/EmotionTimeline';
 import { PersonalityRadar } from '../components/Dashboard/PersonalityRadar';
 import { Button } from '../components/UI/Button';
 import { EmotionBadge } from '../components/UI/EmotionBadge';
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
+import { LoadingSpinner } from '../components/UI/LoadingSpinner';
 
 export const Dashboard = () => {
     const { user } = useAuthStore();
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<any>(null);
 
-    // Mock Data
-    const stats = [
-        { label: "Today's Emotion", value: "Calm", icon: <div className="text-2xl">😌</div>, sub: "Dominant state" },
-        { label: "Mood Stability", value: "7.4/10", icon: <TrendingUp className="text-teal-400" size={24} />, sub: "+1.2 this week" },
-        { label: "Conversations", value: "12", icon: <MessageSquare className="text-violet-400" size={24} />, sub: "Total this week" },
-        { label: "Top Modality", value: "Audio", icon: <Mic className="text-blue-400" size={24} />, sub: "45% usage" },
-    ];
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const stats = await api.getDashboardStats();
+                setData(stats);
+            } catch (error) {
+                console.error("Failed to load dashboard stats", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
 
-    const recentSessions = [
-        { id: 1, date: 'Today, 2:30 PM', duration: '12 min', emotion: 'calm', preview: "Discussed improving work-life balance..." },
-        { id: 2, date: 'Yesterday, 9:15 AM', duration: '8 min', emotion: 'sad', preview: "Feeling stressed about upcoming deadlines..." },
-        { id: 3, date: 'Feb 12, 6:45 PM', duration: '15 min', emotion: 'happy', preview: "Shared good news about the project..." },
-    ];
-
+    // Placeholder traits until backend supports personality analysis
     const traits = [
         { label: 'Openness', score: 85, desc: 'Curious and inventive' },
         { label: 'Conscientiousness', score: 65, desc: 'Organized and efficient' },
         { label: 'Extraversion', score: 45, desc: 'Reserved and thoughtful' },
         { label: 'Agreeableness', score: 90, desc: 'Compassionate and cooperative' },
         { label: 'Neuroticism', score: 30, desc: 'Calm and confident' },
+    ];
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <LoadingSpinner size="lg" />
+            </div>
+        );
+    }
+
+    // Process stats for display
+    const topEmotion = data?.emotion_distribution
+        ? Object.entries(data.emotion_distribution).sort(([, a]: any, [, b]: any) => b - a)[0]?.[0] || 'Neutral'
+        : 'Neutral';
+
+    const displayStats = [
+        {
+            label: "Dominant Emotion",
+            value: topEmotion.charAt(0).toUpperCase() + topEmotion.slice(1),
+            icon: <div className="text-2xl">😌</div>,
+            sub: "All time"
+        },
+        {
+            label: "Total Conversations",
+            value: data?.overview?.total_conversations || 0,
+            icon: <MessageSquare className="text-violet-400" size={24} />,
+            sub: "Lifetime"
+        },
+        {
+            label: "Avg Duration",
+            value: `${Math.round(data?.overview?.average_duration_mins || 0)}m`,
+            icon: <TrendingUp className="text-teal-400" size={24} />,
+            sub: "Per session"
+        },
+        {
+            label: "Total Messages",
+            value: data?.overview?.total_messages || 0,
+            icon: <Mic className="text-blue-400" size={24} />,
+            sub: "Across all sessions"
+        },
     ];
 
     return (
@@ -58,7 +104,7 @@ export const Dashboard = () => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                {stats.map((stat, i) => (
+                {displayStats.map((stat, i) => (
                     <div key={i} className="glass-panel p-5 rounded-xl border border-white/5 bg-[#0f1115]/50 flex flex-col justify-between h-32">
                         <div className="flex justify-between items-start">
                             <span className="p-2 rounded-lg bg-white/5 text-slate-300">
@@ -79,7 +125,7 @@ export const Dashboard = () => {
             <div className="grid lg:grid-cols-3 gap-6 mb-8">
                 {/* Emotion Timeline (Main Chart) */}
                 <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-white/5 bg-[#0f1115]/50 min-h-[400px] flex flex-col">
-                    <EmotionTimeline />
+                    <EmotionTimeline data={data?.emotion_timeline || []} />
                 </div>
 
                 {/* Personality Profile */}
@@ -124,7 +170,7 @@ export const Dashboard = () => {
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-4">
-                    {recentSessions.map((session) => (
+                    {data?.recent_activity?.map((session: any) => (
                         <div
                             key={session.id}
                             className="p-5 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 hover:bg-white/10 transition-all cursor-pointer group flex flex-col h-full"
@@ -132,20 +178,20 @@ export const Dashboard = () => {
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-2 text-xs text-slate-400">
-                                    <Calendar size={14} /> {session.date}
+                                    <Calendar size={14} /> {new Date(session.updated_at || session.created_at).toLocaleDateString()}
                                 </div>
-                                <EmotionBadge emotion={session.emotion as any} size="sm" showConfidence={false} />
+                                <EmotionBadge emotion={session.meta_data?.dominant_emotion || 'neutral'} size="sm" showConfidence={false} />
                             </div>
 
                             <div className="mb-4 flex-1">
                                 <p className="text-sm text-slate-300 line-clamp-2 leading-relaxed italic opacity-80 group-hover:opacity-100 transition-opacity">
-                                    "{session.preview}"
+                                    "{session.meta_data?.summary || 'No summary available'}"
                                 </p>
                             </div>
 
                             <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                    <Clock size={12} /> {session.duration}
+                                    <Clock size={12} /> {session.total_messages} msgs
                                 </div>
 
                                 <div className="transform translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 flex items-center text-xs text-teal-400 font-medium">
@@ -154,6 +200,11 @@ export const Dashboard = () => {
                             </div>
                         </div>
                     ))}
+                    {(!data?.recent_activity || data.recent_activity.length === 0) && (
+                        <div className="col-span-3 text-center py-8 text-slate-500">
+                            No recent sessions found. Start a conversation!
+                        </div>
+                    )}
                 </div>
             </div>
 

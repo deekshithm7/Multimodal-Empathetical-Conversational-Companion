@@ -1,22 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { clsx } from 'clsx';
 import { useEmotionStore } from '../store/useEmotionStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useWebcamRecorder } from '../hooks/useWebcamRecorder';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { ChatInterface } from '../components/Chat/ChatInterface';
-import { AvatarScene } from '../components/Avatar/Scene';
 import { WaveVisualizer } from '../components/AudioVisualizer/WaveVisualizer';
-import { InputMonitorPanel } from '../components/Chat/InputMonitorPanel';
-import { EmotionPanel } from '../components/Chat/EmotionPanel';
 import { SessionSummary } from '../components/Dashboard/SessionSummary';
 import { AnimatePresence } from 'framer-motion';
+import { VanishingCamera } from '../components/Camera/VanishingCamera';
 
 export const Chat = () => {
-    const { currentEmotion, setListening, isListening, startSession, conversationId, sendMessage, sessionSummary, endSession } = useEmotionStore();
+    const { currentEmotion, setListening, isListening, startSession, conversationId, sendMessage, sessionSummary, reset } = useEmotionStore();
     const { isAuthenticated } = useAuthStore();
 
-    const [activeInputMode, setActiveInputMode] = useState<'multimodal' | 'audio-only' | 'text-only'>('multimodal');
+    const [activeInputMode] = useState<'multimodal' | 'audio-only' | 'text-only'>('multimodal');
     const [showSummary, setShowSummary] = useState(false);
     const [sending, setSending] = useState(false);
 
@@ -118,7 +115,7 @@ export const Chat = () => {
     const isSessionActive = recognitionActive || isRecordingSession;
 
     return (
-        <div className="h-[calc(100vh-64px)] w-full overflow-hidden bg-[#0D1B2A] relative flex flex-col md:flex-row">
+        <div className="h-[calc(100vh-64px)] w-full overflow-hidden bg-[#0D1B2A] relative flex flex-col items-center justify-center">
 
             {/* Dynamic Background */}
             <div className="absolute inset-0 z-0 pointer-events-none transition-colors duration-[4000ms]">
@@ -127,29 +124,23 @@ export const Chat = () => {
                     <WaveVisualizer isListening={isListening} emotion={currentEmotion} />
                 </div>
 
-                {/* Avatar Layer */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-40 md:opacity-60 scale-75 md:scale-100">
-                    <div className="w-[500px] h-[500px]">
-                        <AvatarScene />
-                    </div>
-                </div>
+
             </div>
 
-            {/* Left Panel - Input Monitor (Desktop) */}
-            <div className="hidden md:block w-1/4 h-full p-6 z-10 relative">
-                <InputMonitorPanel
-                    stream={stream}
-                    isRecording={isRecordingSession}
-                    isListening={recognitionActive}
-                    activeInputMode={activeInputMode}
-                    onToggleCamera={() => setActiveInputMode(prev => prev === 'multimodal' ? 'audio-only' : 'multimodal')}
-                    onToggleMic={handleToggleSession}
-                />
-            </div>
+            {/* Vanishing Camera Overlay - Only visible when recording */}
+            <AnimatePresence>
+                {isRecordingSession && activeInputMode === 'multimodal' && stream && (
+                    <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden">
+                        <div className="pointer-events-auto">
+                            <VanishingCamera stream={stream} />
+                        </div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Center Panel - Conversation */}
-            <div className="flex-1 h-full z-20 relative flex flex-col">
-                <div className="flex-1 flex flex-col justify-end pb-4">
+            <div className="w-full max-w-4xl h-full z-20 relative flex flex-col p-4 md:p-6">
+                <div className="flex-1 flex flex-col justify-end">
                     <ChatInterface
                         onMicClick={handleToggleSession}
                         isRecording={isSessionActive}
@@ -158,14 +149,19 @@ export const Chat = () => {
                 </div>
             </div>
 
-            {/* Right Panel - Emotion Data (Desktop) */}
-            <div className="hidden md:block w-1/4 h-full p-6 z-10 relative">
-                <EmotionPanel />
-            </div>
-
             {/* Session Summary Modal */}
             <AnimatePresence>
-                {showSummary && <SessionSummary onClose={() => setShowSummary(false)} />}
+                {showSummary && (
+                    <SessionSummary
+                        onClose={() => setShowSummary(false)}
+                        onStartNewSession={() => {
+                            reset();
+                            sessionStartedRef.current = false;
+                            setShowSummary(false);
+                            // Effect will trigger startSession since conversationId became null
+                        }}
+                    />
+                )}
             </AnimatePresence>
         </div>
     );
