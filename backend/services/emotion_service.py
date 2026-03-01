@@ -42,7 +42,7 @@ class EmotionRecognitionService:
         logger.info(f"Loading emotion classifier from {checkpoint_path}...")
         from models.emotion_classifier import FusionMLP
         
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         self.classifier = FusionMLP(use_v=False, use_a=True, use_t=True, num_classes=4)
         self.classifier.load_state_dict(checkpoint['model'])
         self.classifier.to(self.device)

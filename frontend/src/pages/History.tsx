@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -10,38 +10,65 @@ import {
     ArrowRight
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
-import { Input } from '../components/UI/Input';
 import { EmotionBadge } from '../components/UI/EmotionBadge';
 import { ConfirmationModal } from '../components/UI/ConfirmationModal';
 import { useToast } from '../components/UI/Toast';
-
-// Mock Data
-const MOCK_SESSIONS = [
-    { id: '1', date: 'Feb 17, 2026', time: '2:30 PM', duration: '12 min', emotion: 'calm', preview: "Discussed improving work-life balance and setting boundaries.", messages: 14 },
-    { id: '2', date: 'Feb 16, 2026', time: '9:15 AM', duration: '8 min', emotion: 'sad', preview: "Feeling stressed about upcoming deadlines and project scope.", messages: 8 },
-    { id: '3', date: 'Feb 12, 2026', time: '6:45 PM', duration: '15 min', emotion: 'happy', preview: "Shared good news about the project launch success.", messages: 22 },
-    { id: '4', date: 'Feb 10, 2026', time: '11:20 AM', duration: '20 min', emotion: 'angry', preview: "Frustrated with team communication issues.", messages: 18 },
-    { id: '5', date: 'Feb 08, 2026', time: '4:00 PM', duration: '10 min', emotion: 'neutral', preview: "General check-in and weekly planning.", messages: 12 },
-];
+import { api } from '../api/client';
+import { LoadingSpinner } from '../components/UI/LoadingSpinner';
+import { SessionDetailModal } from '../components/History/SessionDetailModal';
 
 export const History = () => {
     const navigate = useNavigate();
     const toast = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-    const [sessions, setSessions] = useState(MOCK_SESSIONS);
+    const [sessions, setSessions] = useState<any[]>([]); // Use appropriate type if available
+    const [loading, setLoading] = useState(true);
     const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
-    const filteredSessions = sessions.filter(session =>
-        session.preview.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        session.emotion.includes(searchTerm.toLowerCase())
-    );
+    useEffect(() => {
+        const fetchHistory = async () => {
+            try {
+                const response = await api.getHistory(50); // Fetch last 50
+                setSessions(response.items || []);
+            } catch (error) {
+                console.error("Failed to fetch history", error);
+                // Note: toast intentionally omitted from deps to prevent infinite loop
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchHistory();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const handleDelete = () => {
+    const filteredSessions = sessions.filter(session => {
+        const textToSearch = (session.meta_data?.preview || session.meta_data?.summary || '').toLowerCase();
+        const emotion = (session.meta_data?.dominant_emotion || 'neutral').toLowerCase();
+        const term = searchTerm.toLowerCase();
+        return textToSearch.includes(term) || emotion.includes(term);
+    });
+
+    const handleDelete = async () => {
         if (!deleteId) return;
-        setSessions(prev => prev.filter(s => s.id !== deleteId));
-        setDeleteId(null);
-        toast.success('Session deleted successfully');
+        try {
+            await api.deleteSession(deleteId);
+            setSessions(prev => prev.filter(s => s.id !== deleteId));
+            toast.success("Session deleted successfully");
+        } catch (error) {
+            console.error("Failed to delete session", error);
+            toast.error("Failed to delete session");
+        } finally {
+            setDeleteId(null);
+        }
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <LoadingSpinner size={48} />
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto px-4 py-8 pb-24 md:pb-8 max-w-5xl animate-in fade-in duration-500">
@@ -95,29 +122,38 @@ export const History = () => {
                                 {/* Left: Info */}
                                 <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2">
-                                        <EmotionBadge emotion={session.emotion as any} size="sm" showConfidence={false} />
+                                        <EmotionBadge emotion={(session.meta_data?.dominant_emotion || 'neutral') as any} size="sm" showConfidence={false} />
                                         <span className="text-sm text-slate-400 flex items-center gap-1.5">
-                                            <Calendar size={14} /> {session.date} • {session.time}
+                                            <Calendar size={14} /> {new Date(session.created_at).toLocaleDateString()} • {new Date(session.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
 
                                     <h3 className="text-lg font-medium text-slate-200 mb-2 leading-snug">
-                                        "{session.preview}"
+                                        "{session.meta_data?.summary || 'No summary available'}"
                                     </h3>
 
                                     <div className="flex items-center gap-4 text-xs text-slate-500">
                                         <span className="flex items-center gap-1.5">
-                                            <Clock size={14} /> {session.duration}
+                                            <Clock size={14} /> {session.duration || '0 min'}
+                                            {/* Duration calculation logic needed if not in metadata, but backend doesn't send duration in list? 
+                                                Actually analytics.py list items are from .to_dict() which has ended_at.
+                                                We can calc here or just show placeholder if null.
+                                            */}
                                         </span>
                                         <span className="flex items-center gap-1.5">
-                                            <MessageSquare size={14} /> {session.messages} messages
+                                            <MessageSquare size={14} /> {session.total_messages} messages
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* Right: Actions */}
                                 <div className="flex items-center gap-3 self-start md:self-center mt-2 md:mt-0">
-                                    <Button variant="ghost" size="sm" className="hidden md:flex">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="hidden md:flex"
+                                        onClick={() => setSelectedSessionId(session.id)}
+                                    >
                                         View Transcript
                                     </Button>
                                     <button
@@ -127,7 +163,10 @@ export const History = () => {
                                     >
                                         <Trash2 size={18} />
                                     </button>
-                                    <button className="md:hidden p-2 rounded-lg text-teal-400 bg-teal-500/10">
+                                    <button
+                                        className="md:hidden p-2 rounded-lg text-teal-400 bg-teal-500/10"
+                                        onClick={() => setSelectedSessionId(session.id)}
+                                    >
                                         <ArrowRight size={18} />
                                     </button>
                                 </div>
@@ -154,6 +193,12 @@ export const History = () => {
                 message="Are you sure you want to delete this session? This action cannot be undone and will remove it from your emotional timeline."
                 confirmText="Delete"
                 variant="danger"
+            />
+
+            <SessionDetailModal
+                isOpen={!!selectedSessionId}
+                onClose={() => setSelectedSessionId(null)}
+                sessionId={selectedSessionId}
             />
 
         </div>

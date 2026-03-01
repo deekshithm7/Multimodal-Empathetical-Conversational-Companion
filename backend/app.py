@@ -3,6 +3,7 @@ MECC Backend API - Complete Version
 Includes: Emotion Detection, LLM, TTS, Transcription, Database
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -41,11 +42,54 @@ from utils.auth import get_current_user
 # Import Routers
 from routers import auth, users, analytics
 
+# Lifespan context manager (replaces deprecated @app.on_event("startup"))
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global emotion_service, llm_service, tts_service, whisper_service
+
+    logger.info("🚀 Starting MECC Backend API v2.1...")
+
+    try:
+        init_db()
+
+        checkpoint_path = os.environ.get('MODEL_CHECKPOINT_PATH', 'checkpoints/at.pth')
+        device = os.environ.get('DEVICE', 'cuda')
+
+        emotion_service = get_emotion_service(checkpoint_path=checkpoint_path, device=device)
+        llm_service = get_free_llm_service(model_name="llama3.2:3b")
+        tts_service = get_free_tts_service(provider="piper", voice="voices/en_US-lessac-medium.onnx")
+
+        use_whisper_api = os.environ.get('USE_WHISPER_API', 'false').lower() == 'true'
+        whisper_model_size = os.environ.get('WHISPER_MODEL_SIZE', 'base')
+        whisper_service = get_whisper_service(
+            use_api=use_whisper_api,
+            model_size=whisper_model_size,
+            device=device
+        )
+
+        feature_service = get_feature_service()
+        _ = feature_service.audio_encoder
+        _ = feature_service.text_encoder
+        logger.info("✅ Feature service encoders pre-loaded")
+
+        logger.info("✅ All services initialized successfully")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize services: {e}")
+        raise
+
+    yield  # App runs here
+
+    # Shutdown (nothing needed currently)
+    logger.info("🛑 MECC Backend shutting down")
+
+
 # Initialize FastAPI
 app = FastAPI(
     title="MECC API",
     description="Multimodal Empathetical Conversational Companion",
-    version="2.1.0"
+    version="2.1.0",
+    lifespan=lifespan
 )
 
 # CORS
@@ -89,45 +133,6 @@ class EndConversationResponse(BaseModel):
     duration_minutes: float
 
 
-# Startup
-@app.on_event("startup")
-async def startup_event():
-    global emotion_service, llm_service, tts_service, whisper_service
-    
-    logger.info("🚀 Starting MECC Backend API v2.1...")
-    
-    try:
-        # Initialize database
-        init_db()
-        
-        # Initialize services
-        checkpoint_path = os.environ.get('MODEL_CHECKPOINT_PATH', 'checkpoints/at.pth')
-        device = os.environ.get('DEVICE', 'cuda')
-        
-        emotion_service = get_emotion_service(checkpoint_path=checkpoint_path, device=device)
-        llm_service = get_free_llm_service(model_name="llama3.2:3b")
-        
-        tts_provider = os.environ.get('TTS_PROVIDER', 'openai')
-        tts_service = get_free_tts_service(provider="piper", voice="voices/en_US-lessac-medium.onnx")
-        
-        use_whisper_api = os.environ.get('USE_WHISPER_API', 'false').lower() == 'true'
-        whisper_model_size = os.environ.get('WHISPER_MODEL_SIZE', 'base')
-        whisper_service = get_whisper_service(
-            use_api=use_whisper_api,
-            model_size=whisper_model_size,
-            device=device
-        )
-        
-        feature_service = get_feature_service()
-        _ = feature_service.audio_encoder
-        _ = feature_service.text_encoder
-        logger.info("✅ Feature service encoders pre-loaded")
-        
-        logger.info("✅ All services initialized successfully")
-    
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize services: {e}")
-        raise
 
 
 # Helper functions
@@ -143,12 +148,14 @@ def save_audio_file(audio: UploadFile, conversation_id: str) -> Dict:
         f.write(content)
     
     duration = 0.0
-    try:
-        import soundfile as sf
-        info = sf.info(file_path)
-        duration = info.duration
-    except Exception as e:
-        logger.warning(f"Failed to get audio duration: {e}")
+    # soundfile doesn't support .webm — skip duration check for that format
+    if not file_path.endswith('.webm'):
+        try:
+            import soundfile as sf
+            info = sf.info(file_path)
+            duration = info.duration
+        except Exception as e:
+            logger.debug(f"Could not get audio duration: {e}")
     
     return {
         'path': file_path,
