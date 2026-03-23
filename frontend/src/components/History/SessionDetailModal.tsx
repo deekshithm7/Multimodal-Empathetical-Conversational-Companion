@@ -55,8 +55,8 @@ export const SessionDetailModal = ({ isOpen, onClose, sessionId }: SessionDetail
                         <h2 className="text-xl font-serif text-slate-100">Session Details</h2>
                         {data && (
                             <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
-                                <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(data.summary.created_at).toLocaleDateString()}</span>
-                                <span className="flex items-center gap-1"><Clock size={14} /> {new Date(data.summary.created_at).toLocaleTimeString()}</span>
+                                <span className="flex items-center gap-1"><Calendar size={14} /> {data.summary.started_at ? new Date(data.summary.started_at).toLocaleDateString() : 'Unknown Date'}</span>
+                                <span className="flex items-center gap-1"><Clock size={14} /> {data.summary.started_at ? new Date(data.summary.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                             </div>
                         )}
                     </div>
@@ -69,7 +69,7 @@ export const SessionDetailModal = ({ isOpen, onClose, sessionId }: SessionDetail
                 <div className="flex-1 overflow-y-auto p-6 space-y-8">
                     {loading ? (
                         <div className="flex justify-center py-20">
-                            <LoadingSpinner size="lg" />
+                            <LoadingSpinner size={48} />
                         </div>
                     ) : error ? (
                         <div className="text-center text-red-400 py-10">
@@ -80,9 +80,11 @@ export const SessionDetailModal = ({ isOpen, onClose, sessionId }: SessionDetail
                             {/* Summary Card */}
                             <div className="grid md:grid-cols-3 gap-6">
                                 <div className="md:col-span-2 space-y-6">
-                                    {/* Emotion Timeline */}
                                     <div className="bg-white/5 rounded-xl p-4 border border-white/10 h-[300px] flex flex-col">
-                                        <EmotionTimeline data={data.emotion_timeline || []} />
+                                        <EmotionTimeline data={(data.emotion_timeline || []).map((e: any) => ({
+                                            date: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                            [e.emotion]: e.confidence * 100
+                                        }))} />
                                     </div>
 
                                     {/* Transcript */}

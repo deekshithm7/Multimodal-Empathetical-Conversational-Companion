@@ -449,7 +449,7 @@ async def end_session(
         summary_stored_path = os.path.join(AUDIO_STORAGE_DIR, summary_filename)
         shutil.copy(summary_audio_path, summary_stored_path)
 
-        db_end_conversation(db, conversation_id)
+        db_end_conversation(db, conversation_id, summary_text=summary_text)
 
         duration_minutes = 0.0
         if convo.ended_at and convo.started_at:

@@ -13,7 +13,8 @@ import {
   Chat,
   Dashboard,
   History,
-  Profile
+  Profile,
+  Insights
 } from './pages';
 
 // Components (Barrel Import)
@@ -99,6 +100,12 @@ function App() {
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/insights" element={
+              <ProtectedRoute>
+                <Insights />
               </ProtectedRoute>
             } />
 

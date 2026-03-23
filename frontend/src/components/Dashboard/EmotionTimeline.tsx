@@ -28,12 +28,11 @@ const emotionConfig = [
     { key: 'happy', color: '#4ade80', label: 'Happy' },
     { key: 'sad', color: '#a78bfa', label: 'Sad' },
     { key: 'angry', color: '#f87171', label: 'Angry' },
-    { key: 'calm', color: '#60a5fa', label: 'Calm' },
-    { key: 'fearful', color: '#fb923c', label: 'Fearful' },
+    { key: 'neutral', color: '#94a3b8', label: 'Neutral' },
 ];
 
 export const EmotionTimeline = ({ data }: EmotionTimelineProps) => {
-    const [visibleEmotions, setVisibleEmotions] = useState<string[]>(['happy', 'sad', 'angry', 'calm']);
+    const [visibleEmotions, setVisibleEmotions] = useState<string[]>(['happy', 'sad', 'angry', 'neutral']);
 
     const toggleEmotion = (emotion: string) => {
         setVisibleEmotions(prev =>

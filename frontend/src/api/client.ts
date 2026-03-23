@@ -224,7 +224,8 @@ export const api = {
         
         // 202 means not enough sessions yet, but gives progress
         if (response.status === 202) {
-            return response.json();
+            const data = await response.json();
+            return data.detail || data;
         }
         
         // 404 means absolutely no data yet

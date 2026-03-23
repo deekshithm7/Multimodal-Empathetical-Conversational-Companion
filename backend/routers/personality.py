@@ -47,6 +47,12 @@ async def get_personality_profile(
 
     if not data["ready"]:
         sessions_needed = 5 - data["sessions_complete"]
+        
+        # We can format the temporary profile if it exists
+        temp_profile = None
+        if data.get("profile"):
+            temp_profile = svc.format_for_display(data["profile"])
+
         raise HTTPException(
             status_code=202,
             detail={
@@ -54,6 +60,8 @@ async def get_personality_profile(
                 "sessions_complete": data["sessions_complete"],
                 "sessions_needed":   sessions_needed,
                 "message":           f"Complete {sessions_needed} more session(s) to unlock your personality profile.",
+                "session_history":   data.get("session_history", []),
+                "profile":           temp_profile
             }
         )
 
@@ -63,6 +71,7 @@ async def get_personality_profile(
         "ready":             True,
         "sessions_complete": data["sessions_complete"],
         "profile":           formatted,
+        "session_history":   data.get("session_history", [])
     }
 
 

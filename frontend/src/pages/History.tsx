@@ -124,7 +124,7 @@ export const History = () => {
                                     <div className="flex items-center gap-3 mb-2">
                                         <EmotionBadge emotion={(session.meta_data?.dominant_emotion || 'neutral') as any} size="sm" showConfidence={false} />
                                         <span className="text-sm text-slate-400 flex items-center gap-1.5">
-                                            <Calendar size={14} /> {new Date(session.created_at).toLocaleDateString()} • {new Date(session.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            <Calendar size={14} /> {session.started_at ? new Date(session.started_at).toLocaleDateString() : 'Unknown Date'} • {session.started_at ? new Date(session.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                         </span>
                                     </div>
 

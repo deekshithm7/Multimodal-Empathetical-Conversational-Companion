@@ -297,7 +297,7 @@ def get_conversation_history(db, conversation_id: str, limit: int = 20) -> list:
     return [msg.to_dict() for msg in messages]
 
 
-def end_conversation(db, conversation_id: str):
+def end_conversation(db, conversation_id: str, summary_text: str = None):
     """Mark conversation as completed"""
     
     conversation = db.query(Conversation).filter(
@@ -307,8 +307,13 @@ def end_conversation(db, conversation_id: str):
     if conversation:
         conversation.ended_at = datetime.utcnow()
         conversation.status = 'completed'
-        db.commit()
         
+        if summary_text:
+            meta_copy = dict(conversation.meta_data) if conversation.meta_data else {}
+            meta_copy['summary'] = summary_text
+            conversation.meta_data = meta_copy
+            
+        db.commit()
         logger.info(f"Ended conversation: {conversation_id}")
 
 

@@ -66,7 +66,17 @@ async def get_dashboard_stats(
     for entry in recent_emotions:
         if not entry.timestamp:
             continue
-        date_str = entry.timestamp.strftime('%Y-%m-%d')
+        
+        # Cross-database datetime handling
+        if isinstance(entry.timestamp, str):
+            try:
+                dt = datetime.datetime.fromisoformat(entry.timestamp.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+        else:
+            dt = entry.timestamp
+            
+        date_str = dt.strftime('%b %d')
         if date_str not in timeline_data:
             timeline_data[date_str] = {}
         

@@ -206,6 +206,7 @@ class PersonalityService:
             "profile":           data.get("profile"),
             "sessions_complete": data.get("sessions_complete", 0),
             "ready":             data.get("sessions_complete", 0) >= MIN_SESSIONS_READY,
+            "session_history":   data.get("session_history", []),
         }
 
     def format_for_display(self, profile: Dict[str, float]) -> Dict[str, dict]:

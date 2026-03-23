@@ -58,7 +58,7 @@ export const Dashboard = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-screen">
-                <LoadingSpinner size="lg" />
+                <LoadingSpinner size={48} />
             </div>
         );
     }
@@ -176,7 +176,10 @@ export const Dashboard = () => {
                             </div>
                         ))}
 
-                        <button className="w-full mt-2 py-2 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 rounded-lg transition-all border border-transparent hover:border-teal-500/20">
+                        <button 
+                            className="w-full mt-2 py-2 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 rounded-lg transition-all border border-transparent hover:border-teal-500/20"
+                            onClick={() => navigate('/insights')}
+                        >
                             View Detailed Analysis
                         </button>
                     </div>
