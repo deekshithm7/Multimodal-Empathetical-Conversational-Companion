@@ -322,3 +322,106 @@ def get_emotion_timeline(db, conversation_id: str) -> list:
     ).all()
     
     return [entry.to_dict() for entry in timeline]
+
+class PersonalityObservation(Base):  # noqa: F821
+    """
+    Raw OCEAN scores for a single video processed during a conversation.
+    Linked to message_id, conversation_id, user_id for aggregation at session end.
+    """
+    __tablename__ = "personality_observations"
+ 
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id         = Column(UUID(as_uuid=True), nullable=False, index=True)
+    conversation_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    message_id      = Column(UUID(as_uuid=True), nullable=True,  index=True)
+ 
+    openness          = Column(Float, nullable=False)
+    conscientiousness = Column(Float, nullable=False)
+    extraversion      = Column(Float, nullable=False)
+    agreeableness     = Column(Float, nullable=False)
+    neuroticism       = Column(Float, nullable=False)
+ 
+    created_at = Column(DateTime, default=datetime.utcnow)
+ 
+    def to_dict(self):
+        return {
+            "id":                str(self.id),
+            "user_id":           str(self.user_id),
+            "conversation_id":   str(self.conversation_id),
+            "message_id":        str(self.message_id) if self.message_id else None,
+            "openness":          self.openness,
+            "conscientiousness": self.conscientiousness,
+            "extraversion":      self.extraversion,
+            "agreeableness":     self.agreeableness,
+            "neuroticism":       self.neuroticism,
+            "created_at":        self.created_at.isoformat() if self.created_at else None,
+        }
+ 
+    def ocean_dict(self):
+        return {
+            "openness":          self.openness,
+            "conscientiousness": self.conscientiousness,
+            "extraversion":      self.extraversion,
+            "agreeableness":     self.agreeableness,
+            "neuroticism":       self.neuroticism,
+        }
+ 
+class PersonalityProfile(Base):  # noqa: F821
+    """
+    Per-user running OCEAN personality profile stored in PostgreSQL.
+    One row per user — upserted after each session completes.
+    Replaces the previous JSON file approach.
+    """
+    __tablename__ = "personality_profiles"
+ 
+    id                = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id           = Column(String(255), unique=True, nullable=False, index=True)
+    sessions_complete = Column(Integer, default=0, nullable=False)
+    profile           = Column(JSON, nullable=True)      # {"openness": 0.68, ...}
+    session_history   = Column(JSON, default=list)       # [{session_id, timestamp, session_score}, ...]
+    updated_at        = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at        = Column(DateTime, default=datetime.utcnow)
+ 
+    def to_dict(self):
+        return {
+            "id":                str(self.id),
+            "user_id":           self.user_id,
+            "sessions_complete": self.sessions_complete,
+            "profile":           self.profile,
+            "session_history":   self.session_history,
+            "updated_at":        self.updated_at.isoformat() if self.updated_at else None,
+        }
+ 
+# ── Helper functions — add these alongside the existing helpers in database.py ─
+ 
+def save_personality_observation(
+    db,
+    user_id:         str,
+    conversation_id: str,
+    ocean_scores:    dict,
+    message_id:      str = None,
+) -> "PersonalityObservation":
+    obs = PersonalityObservation(
+        user_id           = uuid.UUID(user_id),
+        conversation_id   = uuid.UUID(conversation_id),
+        message_id        = uuid.UUID(message_id) if message_id else None,
+        openness          = ocean_scores.get("openness",          0.5),
+        conscientiousness = ocean_scores.get("conscientiousness", 0.5),
+        extraversion      = ocean_scores.get("extraversion",      0.5),
+        agreeableness     = ocean_scores.get("agreeableness",     0.5),
+        neuroticism       = ocean_scores.get("neuroticism",       0.5),
+    )
+    db.add(obs)
+    db.commit()
+    db.refresh(obs)
+    return obs
+ 
+ 
+def get_session_personality_observations(db, conversation_id: str) -> list:
+    rows = (
+        db.query(PersonalityObservation)
+        .filter(PersonalityObservation.conversation_id == uuid.UUID(conversation_id))
+        .order_by(PersonalityObservation.created_at)
+        .all()
+    )
+    return [r.ocean_dict() for r in rows]
