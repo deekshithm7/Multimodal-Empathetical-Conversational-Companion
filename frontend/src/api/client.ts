@@ -215,6 +215,28 @@ export const api = {
     },
 
     /**
+     * Get Personality Profile
+     */
+    async getPersonalityProfile(): Promise<any> {
+        const response = await fetch(`${API_URL}/api/v1/personality/profile`, {
+            headers: this.privateHeaders(),
+        });
+        
+        // 202 means not enough sessions yet, but gives progress
+        if (response.status === 202) {
+            return response.json();
+        }
+        
+        // 404 means absolutely no data yet
+        if (response.status === 404) {
+            return { ready: false, sessions_complete: 0, sessions_needed: 5 };
+        }
+        
+        if (!response.ok) throw new Error('Failed to fetch personality profile');
+        return response.json();
+    },
+
+    /**
      * Get Conversation History
      */
     async getHistory(limit = 20, offset = 0): Promise<any> {

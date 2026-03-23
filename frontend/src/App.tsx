@@ -48,7 +48,7 @@ function App() {
         {isAuthenticated && <TopNav />}
 
         {/* Main Content Area */}
-        <main className={`w-full ${isAuthenticated ? 'h-[calc(100vh-64px)]' : 'h-screen'} overflow-hidden relative`}>
+        <main className={`w-full ${isAuthenticated ? 'h-[calc(100vh-64px)]' : 'h-screen'} overflow-y-auto relative`}>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />

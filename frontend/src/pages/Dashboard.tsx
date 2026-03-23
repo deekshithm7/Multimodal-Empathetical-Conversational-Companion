@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import {
-    Activity,
     TrendingUp,
     MessageSquare,
     Mic,
@@ -22,12 +21,17 @@ export const Dashboard = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
+    const [personalityData, setPersonalityData] = useState<any>(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const stats = await api.getDashboardStats();
+                const [stats, personality] = await Promise.all([
+                    api.getDashboardStats(),
+                    api.getPersonalityProfile(),
+                ]);
                 setData(stats);
+                setPersonalityData(personality);
             } catch (error) {
                 console.error("Failed to load dashboard stats", error);
             } finally {
@@ -37,14 +41,19 @@ export const Dashboard = () => {
         fetchData();
     }, []);
 
-    // Placeholder traits until backend supports personality analysis
-    const traits = [
-        { label: 'Openness', score: 85, desc: 'Curious and inventive' },
-        { label: 'Conscientiousness', score: 65, desc: 'Organized and efficient' },
-        { label: 'Extraversion', score: 45, desc: 'Reserved and thoughtful' },
-        { label: 'Agreeableness', score: 90, desc: 'Compassionate and cooperative' },
-        { label: 'Neuroticism', score: 30, desc: 'Calm and confident' },
-    ];
+    const traits = personalityData?.ready && personalityData?.profile 
+        ? Object.entries(personalityData.profile).map(([key, val]: any) => ({
+            label: key.charAt(0).toUpperCase() + key.slice(1),
+            score: Math.round(val.score * 100),
+            desc: val.label
+        }))
+        : [
+            { label: 'Openness', score: 0, desc: 'Needs more data' },
+            { label: 'Conscientiousness', score: 0, desc: 'Needs more data' },
+            { label: 'Extraversion', score: 0, desc: 'Needs more data' },
+            { label: 'Agreeableness', score: 0, desc: 'Needs more data' },
+            { label: 'Neuroticism', score: 0, desc: 'Needs more data' },
+        ];
 
     if (loading) {
         return (
@@ -59,7 +68,7 @@ export const Dashboard = () => {
         ? Object.entries(data.emotion_distribution).sort(([, a]: any, [, b]: any) => b - a)[0]?.[0] || 'Neutral'
         : 'Neutral';
 
-    const displayStats = [
+    const displayStats: any[] = [
         {
             label: "Dominant Emotion",
             value: topEmotion.charAt(0).toUpperCase() + topEmotion.slice(1),
@@ -129,11 +138,25 @@ export const Dashboard = () => {
                 </div>
 
                 {/* Personality Profile */}
-                <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-[#0f1115]/50 flex flex-col h-full">
+                <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-[#0f1115]/50 flex flex-col h-full relative">
                     <h3 className="text-lg font-semibold text-slate-200 mb-4">Personality Insights</h3>
 
+                    {!personalityData?.ready && (
+                        <div className="absolute inset-0 z-10 bg-[#0f1115]/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-6 text-center">
+                            <h4 className="text-md font-medium text-slate-200 mb-2">Analyzing Personality...</h4>
+                            <p className="text-xs text-slate-400 mb-4">Complete 5 sessions to unlock deep insights.</p>
+                            <div className="w-full max-w-[200px] h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-teal-500 rounded-full transition-all" 
+                                    style={{ width: `${(Math.min((personalityData?.sessions_complete || 0), 5) / 5) * 100}%` }}
+                                />
+                            </div>
+                            <p className="text-[10px] text-teal-400 mt-2">{personalityData?.sessions_complete || 0} / 5 Sessions</p>
+                        </div>
+                    )}
+
                     <div className="flex-1 w-full h-[250px] mb-6 relative">
-                        <PersonalityRadar />
+                        <PersonalityRadar traits={traits} />
                     </div>
 
                     <div className="space-y-4">
