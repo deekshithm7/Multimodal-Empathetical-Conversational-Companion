@@ -28,7 +28,7 @@ export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInter
     };
 
     return (
-        <div className="flex flex-col w-full max-w-2xl mx-auto h-full relative">
+        <div className="flex flex-col w-full max-w-2xl mx-auto h-full relative min-h-0">
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0 scroll-smooth">

@@ -149,10 +149,25 @@ class _EmotionVisualEncoder:
 
     @torch.no_grad()
     def encode(self, video_path: str) -> np.ndarray:
+        tmp_video = None
+        target_path = video_path
         try:
-            cap = cv2.VideoCapture(video_path)
+            # OpenCV notoriously fails on .webm on many systems. We transcode to mp4 first.
+            if video_path.lower().endswith((".webm", ".mkv", ".avi")):
+                tmp_video = tempfile.mktemp(suffix=".mp4")
+                import subprocess
+                # -preset ultrafast -crf 28 means fast conversion, acceptable quality for frame extraction
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", video_path,
+                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-an", tmp_video],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    timeout=60, check=True,
+                )
+                target_path = tmp_video
+
+            cap = cv2.VideoCapture(target_path)
             if not cap.isOpened():
-                raise RuntimeError(f"Cannot open video: {video_path}")
+                raise RuntimeError(f"Cannot open video: {target_path}")
 
             total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             if total <= 0:
@@ -182,6 +197,10 @@ class _EmotionVisualEncoder:
         except Exception as e:
             logger.error(f"EmotionVisualEncoder failed: {e}")
             return np.zeros((NUM_VISUAL_FRAMES, 256), dtype=np.float32)
+        finally:
+            if tmp_video and os.path.exists(tmp_video):
+                try: os.unlink(tmp_video)
+                except Exception: pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────
