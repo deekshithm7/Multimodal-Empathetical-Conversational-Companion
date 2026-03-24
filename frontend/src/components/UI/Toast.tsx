@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect } from 'react';
-
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface Toast {

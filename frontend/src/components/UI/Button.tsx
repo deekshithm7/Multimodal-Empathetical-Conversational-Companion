@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { forwardRef } from 'react';
+import type { ButtonHTMLAttributes } from 'react';
 import { Loader2 } from 'lucide-react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

@@ -21,8 +21,8 @@ interface AuthState {
     login: (email: string, password: string) => Promise<void>;
     register: (name: string, email: string, password: string) => Promise<void>;
     logout: () => void;
-    // forgotPassword: (email: string) => Promise<void>; // Pending backend implementation
-    // resetPassword: (token: string, password: string) => Promise<void>; // Pending backend implementation
+    forgotPassword: (email: string) => Promise<void>;
+    resetPassword: (token: string, password: string) => Promise<void>;
     updateProfile: (data: Partial<User>) => Promise<void>;
     clearError: () => void;
     checkAuth: () => Promise<void>; // New: Check if token is valid
@@ -159,14 +159,3 @@ export const useAuthStore = create<AuthState>()(
 
 // Helper
 const dateToId = () => Date.now().toString();
-
-// Unused methods commented out to match interface updates if needed,
-// or implement placeholders if UI expects them:
-/*
-    forgotPassword: async (email: string) => {
-        // ...
-    },
-    resetPassword: async (token: string, password: string) => {
-        // ...
-    },
-*/

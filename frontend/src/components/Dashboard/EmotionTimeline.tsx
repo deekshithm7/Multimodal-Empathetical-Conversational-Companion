@@ -5,12 +5,10 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
-    ResponsiveContainer,
-    Legend
+    ResponsiveContainer
 } from 'recharts';
 import { useState } from 'react';
 import { clsx } from 'clsx';
-import { type Emotion } from '../../store/useEmotionStore';
 
 export interface EmotionTimelineProps {
     data: Array<{

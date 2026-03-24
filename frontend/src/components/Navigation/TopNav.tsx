@@ -1,11 +1,8 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import {
     LogOut,
     User,
-    Settings,
-    Menu,
-    X,
     Activity,
     MessageSquare,
     LayoutDashboard,

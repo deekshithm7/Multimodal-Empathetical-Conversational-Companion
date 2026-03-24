@@ -49,10 +49,10 @@ export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInter
                             {/* Show emotion badge for user messages */}
                             {msg.emotion && msg.sender === 'user' && (
                                 <div className={clsx(
-                                    "mt-2 inline-block px-2 py-1 rounded-full text-xs border",
+                                    "mt-2 inline-block px-2 py-1 rounded-full text-xs border capitalize",
                                     getEmotionColor(msg.emotion.type)
                                 )}>
-                                    {msg.emotion.type} • {(msg.emotion.confidence * 100).toFixed(0)}%
+                                    {msg.emotion.type}
                                 </div>
                             )}
                         </motion.div>
@@ -92,8 +92,7 @@ export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInter
                 {/* Central Multimodal Button */}
                 <button
                     onClick={onMicClick}
-                    disabled={isLoading} // Assuming isLoading is available in scope or we use a prop? 
-                    // Wait, isLoading comes from useEmotionStore hook inside component.
+                    disabled={isLoading}
                     className={clsx(
                         "relative p-6 rounded-full transition-all duration-500 flex items-center justify-center shadow-2xl border-4 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
                         isRecording
@@ -104,8 +103,7 @@ export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInter
                     {isRecording ? <Square size={32} fill="currentColor" /> : <AudioLines size={36} strokeWidth={2} />}
                 </button>
                 <p className="mt-4 text-xs font-semibold tracking-widest text-slate-400 uppercase opacity-60">
-                    {/* Accessing isLoading from store hook which is already called in component body */}
-                    {useEmotionStore.getState().isLoading ? "Processing..." : isRecording ? "Recording • Listening" : "Tap to Start"}
+                    {isLoading ? "Processing..." : isRecording ? "Recording • Listening" : "Tap to Start"}
                 </p>
 
                 {/* End Session Button (absolute in this container) */}

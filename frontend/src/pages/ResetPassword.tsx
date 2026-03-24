@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Lock, Eye, EyeOff, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Lock, Eye, EyeOff, Check, X } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
@@ -16,8 +16,8 @@ const registerSchema = z.object({
         .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
         .regex(/[0-9]/, 'Must contain at least one number'),
     confirmPassword: z.string(),
-    terms: z.literal(true, {
-        errorMap: () => ({ message: 'You must agree to the terms and privacy policy' })
+    terms: z.boolean().refine((accepted) => accepted, {
+        message: 'You must agree to the terms and privacy policy'
     })
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -38,7 +38,14 @@ export const Register = () => {
         watch,
         formState: { errors }
     } = useForm<RegisterFormData>({
-        resolver: zodResolver(registerSchema)
+        resolver: zodResolver(registerSchema),
+        defaultValues: {
+            fullName: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            terms: false
+        }
     });
 
     const password = watch('password', '');

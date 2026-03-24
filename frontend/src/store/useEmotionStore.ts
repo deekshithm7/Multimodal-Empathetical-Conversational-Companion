@@ -24,6 +24,8 @@ interface EmotionState {
     // UI state
     isListening: boolean;
     isLoading: boolean;
+    /** True while session TTS / assistant audio is playing (drives avatar, etc.). */
+    aiSpeaking: boolean;
     error: string | null;
 
     // Session summary
@@ -37,6 +39,17 @@ interface EmotionState {
     reset: () => void;
 }
 
+function playConversationAudio(relativeUrl: string, set: (partial: Partial<EmotionState>) => void) {
+    const audioUrl = api.getAudioUrl(relativeUrl);
+    const audio = new Audio(audioUrl);
+    const markSpeaking = (speaking: boolean) => set({ aiSpeaking: speaking });
+    audio.addEventListener('play', () => markSpeaking(true));
+    audio.addEventListener('ended', () => markSpeaking(false));
+    audio.addEventListener('error', () => markSpeaking(false));
+    audio.addEventListener('pause', () => markSpeaking(false));
+    audio.play().catch(err => console.warn('Auto-play blocked:', err));
+}
+
 export const useEmotionStore = create<EmotionState>((set, get) => ({
     // Initial state
     conversationId: null,
@@ -44,6 +57,7 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
     messages: [],
     isListening: false,
     isLoading: false,
+    aiSpeaking: false,
     error: null,
     sessionSummary: null,
 
@@ -67,10 +81,7 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
                 isLoading: false
             });
 
-            // Auto-play welcome audio
-            const audioUrl = api.getAudioUrl(response.welcome_audio_url);
-            const audio = new Audio(audioUrl);
-            audio.play().catch(err => console.warn('Auto-play blocked:', err));
+            playConversationAudio(response.welcome_audio_url, set);
 
         } catch (error) {
             console.error('Failed to start session:', error);
@@ -138,10 +149,7 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
                 isLoading: false
             });
 
-            // Play assistant audio response
-            const audioUrl = api.getAudioUrl(response.assistant_audio_url);
-            const audio = new Audio(audioUrl);
-            audio.play().catch(err => console.warn('Auto-play blocked:', err));
+            playConversationAudio(response.assistant_audio_url, set);
 
         } catch (error) {
             console.error('Failed to send message:', error);
@@ -173,10 +181,7 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
                 isLoading: false
             });
 
-            // Play summary audio
-            const audioUrl = api.getAudioUrl(summary.summary_audio_url);
-            const audio = new Audio(audioUrl);
-            audio.play().catch(err => console.warn('Auto-play blocked:', err));
+            playConversationAudio(summary.summary_audio_url, set);
 
         } catch (error) {
             console.error('Failed to end session:', error);
@@ -201,6 +206,7 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
         messages: [],
         isListening: false,
         isLoading: false,
+        aiSpeaking: false,
         error: null,
         sessionSummary: null
     })

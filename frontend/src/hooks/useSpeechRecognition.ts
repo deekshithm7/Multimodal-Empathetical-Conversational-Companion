@@ -16,8 +16,8 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
 
     useEffect(() => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognitionInstance = new SpeechRecognition();
+            const RecognitionCtor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+            const recognitionInstance = new RecognitionCtor();
             recognitionInstance.continuous = true;
             recognitionInstance.interimResults = true;
             recognitionInstance.lang = 'en-US';

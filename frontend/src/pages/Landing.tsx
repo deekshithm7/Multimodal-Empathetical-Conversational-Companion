@@ -1,6 +1,6 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mic, Video, MessageSquare, ArrowRight, Shield, Activity, Heart, User, Sparkles } from 'lucide-react';
+import { Mic, Video, MessageSquare, ArrowRight, Activity, Sparkles } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { useAuthStore } from '../store/useAuthStore';
 
