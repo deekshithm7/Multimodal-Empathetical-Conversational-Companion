@@ -308,10 +308,23 @@ def end_conversation(db, conversation_id: str, summary_text: str = None):
         conversation.ended_at = datetime.utcnow()
         conversation.status = 'completed'
         
-        if summary_text:
-            meta_copy = dict(conversation.meta_data) if conversation.meta_data else {}
-            meta_copy['summary'] = summary_text
-            conversation.meta_data = meta_copy
+        if summary_text is not None:
+            # Need to create a new dictionary so SQLAlchemy detects the change to the JSON column
+            new_meta = dict(conversation.meta_data) if conversation.meta_data else {}
+            new_meta['summary'] = summary_text
+            
+            # Compute dominant emotion from the timeline
+            timeline = get_emotion_timeline(db, conversation_id)
+            if timeline:
+                # Group by emotion and find the max
+                from collections import Counter
+                emotions = [entry['emotion'] for entry in timeline]
+                if emotions:
+                    dominant = Counter(emotions).most_common(1)[0][0]
+                    new_meta['dominant_emotion'] = dominant
+
+            # Explicitly reassign the JSON column to trigger an UPDATE
+            conversation.meta_data = new_meta
             
         db.commit()
         logger.info(f"Ended conversation: {conversation_id}")

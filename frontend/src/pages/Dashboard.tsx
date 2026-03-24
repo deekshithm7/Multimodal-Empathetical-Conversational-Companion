@@ -204,7 +204,7 @@ export const Dashboard = () => {
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-2 text-xs text-slate-400">
-                                    <Calendar size={14} /> {new Date(session.updated_at || session.created_at).toLocaleDateString()}
+                                    <Calendar size={14} /> {session.started_at ? new Date(session.started_at).toLocaleDateString() : 'Unknown Date'}
                                 </div>
                                 <EmotionBadge emotion={session.meta_data?.dominant_emotion || 'neutral'} size="sm" showConfidence={false} />
                             </div>

@@ -50,7 +50,12 @@ export const SessionSummary = ({ onClose, onStartNewSession }: SessionSummaryPro
                 <div className="mb-6 text-left">
                     <h3 className="text-sm font-semibold text-slate-300 uppercase mb-3">Emotional Journey</h3>
                     <div className="space-y-2">
-                        {sessionSummary.emotional_journey.map((entry, idx) => (
+                        {sessionSummary.emotional_journey
+                            .filter((_: any, i: number, arr: any[]) => {
+                                const step = Math.max(1, Math.floor(arr.length / 20)); // show max 20 events
+                                return i % step === 0 || i === arr.length - 1; // always show the last event
+                            })
+                            .map((entry, idx) => (
                             <div key={idx} className="bg-white/5 rounded px-3 py-2 flex justify-between items-center">
                                 <span className="text-slate-200 capitalize">{entry.emotion}</span>
                                 <span className="text-slate-400 text-sm">{(entry.confidence * 100).toFixed(0)}%</span>

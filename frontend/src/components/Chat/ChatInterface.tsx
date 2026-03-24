@@ -32,7 +32,7 @@ export const ChatInterface = ({ onMicClick, isRecording, transcript }: ChatInter
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0 scroll-smooth">
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence>
                     {messages.map((msg) => (
                         <motion.div
                             key={msg.id}

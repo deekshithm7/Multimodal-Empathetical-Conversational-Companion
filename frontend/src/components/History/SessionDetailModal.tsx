@@ -81,10 +81,15 @@ export const SessionDetailModal = ({ isOpen, onClose, sessionId }: SessionDetail
                             <div className="grid md:grid-cols-3 gap-6">
                                 <div className="md:col-span-2 space-y-6">
                                     <div className="bg-white/5 rounded-xl p-4 border border-white/10 h-[300px] flex flex-col">
-                                        <EmotionTimeline data={(data.emotion_timeline || []).map((e: any) => ({
-                                            date: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                                            [e.emotion]: e.confidence * 100
-                                        }))} />
+                                        <EmotionTimeline data={(data.emotion_timeline || [])
+                                            .filter((_: any, i: number, arr: any[]) => {
+                                                const step = Math.max(1, Math.floor(arr.length / 100)); // Max ~100 points
+                                                return i % step === 0;
+                                            })
+                                            .map((e: any) => ({
+                                                date: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                                [e.emotion]: e.confidence * 100
+                                            }))} />
                                     </div>
 
                                     {/* Transcript */}
