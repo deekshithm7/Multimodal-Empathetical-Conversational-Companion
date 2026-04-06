@@ -8,11 +8,11 @@
 
 Most chatbots read only your words. MECC analyses **three information channels at once**:
 
-| Modality | Model | What it captures |
-|---|---|---|
-| 🎙️ Audio | WavLM-Base+ | Vocal tone, pitch, prosody |
-| 📝 Text | RoBERTa-Large | Semantic meaning, sentiment |
-| 👁️ Video | ResNet50 | Facial expressions, visual cues |
+| Modality | What it captures |
+|---|---|
+| 🎙️ Voice | Tone, pitch, and emotional prosody |
+| 📝 Words | Semantic meaning and sentiment |
+| 👁️ Face | Facial expressions and visual cues |
 
 These three streams are fused by a custom **ET-TACFN** (Emotion-aware Temporal Attentive Cross-modal Fusion Network) trained on the MER 2023 dataset, giving MECC a richer picture of your emotional state than any single-modality system can achieve.
 
