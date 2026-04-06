@@ -52,11 +52,11 @@ On top of emotion detection, MECC builds a **long-term OCEAN personality profile
 
 ```
 Browser (React + TypeScript)
-        │   WebM blob (video + audio) + speech transcript
+        │   WebM blob (video + audio)
         ▼
 FastAPI Backend
         │
-        ├── Whisper STT ──────────────────────────────────────► text
+        ├── Whisper STT  (extracts audio from WebM) ──────────► text
         │
         │   ╔══ EmotionFeatureService ══════════════════════╗
         │   ║  (Sequence-level outputs for temporal fusion) ║
@@ -69,11 +69,11 @@ FastAPI Backend
         │                          │
         │               emotion label + confidence
         │
-        │   ╔══ PersonalityFeatureService (background) ═════╗
-        │   ║  (Pooled embeddings for holistic profiling)   ║
-        ├───║  WavLM                  → 768-dim             ║
-        │   ║  RoBERTa                → 768-dim             ║
-        │   ║  ResNet50               → 2048-dim            ║
+        │   ╔══ FeatureService (background) ═══════════════════════╗
+        │   ║  (Pooled embeddings for holistic profiling)       ║
+        ├───║  WavLM                  → 768-dim                 ║
+        │   ║  RoBERTa                → 768-dim                 ║
+        │   ║  ResNet50               → 2048-dim               ║
         │   ╚══════════════════════╤════════════════════════╝
         │                          │
         │           TransformerFusion → OCEAN scores → DB
@@ -94,10 +94,15 @@ FastAPI Backend
 |---|---|
 | API Framework | FastAPI |
 | Deep Learning | PyTorch + CUDA |
-| Emotion Audio Encoder | WavLM-Base+ (Microsoft) |
-| Emotion Text Encoder | RoBERTa-Large |
-| Emotion Visual Encoder | ResNet50 + Linear(2048→256) |
+| **Emotion Feature Extraction** | |
+| └─ Audio encoder | WavLM-Base+ → sequence `[T_a, 768]` |
+| └─ Text encoder | RoBERTa-Large → sequence `[128, 1024]` |
+| └─ Visual encoder | ResNet50 + Linear(2048→256) + ReLU → `[30, 256]` |
 | Emotion Classifier | ET-TACFN (custom, trained on MER 2023) |
+| **Personality Feature Extraction** | |
+| └─ Audio encoder | WavLM-Base+ → pooled `768-dim` |
+| └─ Text encoder | RoBERTa → pooled `768-dim` |
+| └─ Visual encoder | ResNet50 → pooled `2048-dim` |
 | Personality Model | TransformerFusion (TACFN variant) |
 | Speech-to-Text | OpenAI Whisper |
 | Text-to-Speech | Piper TTS |
@@ -154,19 +159,21 @@ pip install -r requirements.txt
 ```
 
 #### Configure Environment
+Create a `.env` file inside the `backend/` folder:
+
 ```bash
-cp .env.example .env
-# Edit .env with your PostgreSQL credentials
+# Windows
+copy NUL backend\.env
+# macOS/Linux
+touch backend/.env
 ```
 
 Key environment variables:
 ```env
 DATABASE_URL=postgresql://postgres:password@localhost/mecc_db
-SECRET_KEY=your-secret-key-here
 
 # Model paths
-MODEL_CHECKPOINT_PATH=checkpoints/best_model.pt
-PERSONALITY_CHECKPOINT_PATH=checkpoints/personality/best_model.pt
+MODEL_CHECKPOINT_PATH=checkpoints/atv_emotion.pth
 
 # LLM
 OLLAMA_MODEL=llama3.2:3b
@@ -178,6 +185,10 @@ WHISPER_MODEL_SIZE=base
 # Storage
 AUDIO_STORAGE_DIR=./audio_storage
 KEEP_AUDIO=false
+
+# Test credentials (optional, for development)
+MECC_TEST_EMAIL=demo@mecc.ai
+MECC_TEST_PASSWORD=demo123
 ```
 
 #### Create Database
@@ -206,7 +217,7 @@ curl -L -o backend/voices/en_US-lessac-medium.onnx.json \
 
 #### Place Trained Model Checkpoints
 ```
-backend/checkpoints/best_model.pt               ← ET-TACFN emotion model
+backend/checkpoints/atv_emotion.pth             ← ET-TACFN emotion model
 backend/checkpoints/personality/best_model.pt   ← Personality TransformerFusion model
 ```
 
@@ -332,7 +343,7 @@ The core emotion model is a custom **Emotion-aware Temporal Attentive Cross-moda
 
 ### Personality OCEAN Profiling
 
-A separate `TransformerFusion` model uses its own **`PersonalityFeatureService`** which outputs *pooled* embeddings (not sequences) — because personality is about the overall character of the entire clip, not moment-to-moment variation:
+A separate `TransformerFusion` model uses its own **`FeatureService`** (`feature_service.py`) which outputs *pooled* embeddings (not sequences) — because personality is about the overall character of the entire clip, not moment-to-moment variation:
 
 - WavLM → pooled `768-dim` vector
 - RoBERTa → pooled `768-dim` vector
