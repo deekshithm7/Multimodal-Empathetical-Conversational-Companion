@@ -52,25 +52,31 @@ On top of emotion detection, MECC builds a **long-term OCEAN personality profile
 
 ```
 Browser (React + TypeScript)
-        │   WebM blob (video + audio) + transcript
+        │   WebM blob (video + audio) + speech transcript
         ▼
 FastAPI Backend
         │
-        ├── Whisper STT ──────────────────────────► Text transcript
+        ├── Whisper STT ──────────────────────────────────────► text
         │
-        ├── EmotionFeatureService (parallel)
-        │     ├── WavLM-Base+  → [T_a, 768]  audio features
-        │     ├── RoBERTa-Large → [128, 1024] text features
-        │     └── ResNet50+256  → [30, 256]  visual features
-        │               │
-        │     ET-TACFN Classifier → emotion label + confidence
+        │   ╔══ EmotionFeatureService ══════════════════════╗
+        │   ║  (Sequence-level outputs for temporal fusion) ║
+        ├───║  WavLM-Base+            → [T_a, 768]          ║
+        │   ║  RoBERTa-Large          → [128, 1024]         ║
+        │   ║  ResNet50 + proj(256)   → [30, 256]           ║
+        │   ╚══════════════════════╤════════════════════════╝
+        │                          │
+        │               ET-TACFN Classifier
+        │                          │
+        │               emotion label + confidence
         │
-        ├── (Background) PersonalityFeatureService (parallel)
-        │     ├── WavLM  → 768-dim
-        │     ├── RoBERTa → 768-dim
-        │     └── ResNet50 → 2048-dim
-        │               │
-        │     TransformerFusion → OCEAN scores → DB
+        │   ╔══ PersonalityFeatureService (background) ═════╗
+        │   ║  (Pooled embeddings for holistic profiling)   ║
+        ├───║  WavLM                  → 768-dim             ║
+        │   ║  RoBERTa                → 768-dim             ║
+        │   ║  ResNet50               → 2048-dim            ║
+        │   ╚══════════════════════╤════════════════════════╝
+        │                          │
+        │           TransformerFusion → OCEAN scores → DB
         │
         ├── LLM (Llama 3.2 via Ollama)
         │     System prompt injected with emotion + guidance
@@ -317,18 +323,22 @@ Full interactive docs available at `http://localhost:8000/docs`
 The core emotion model is a custom **Emotion-aware Temporal Attentive Cross-modal Fusion Network** trained on the MER 2023 multimodal emotion recognition dataset.
 
 - **Emotions**: Neutral · Happy · Sad · Angry · Fearful · Disgust · Surprised · Calm
-- **Audio backbone**: WavLM-Base+ (768-dim sequence)
-- **Text backbone**: RoBERTa-Large (1024-dim, 128 max tokens)
-- **Visual backbone**: ResNet50 + Linear(2048→256) + ReLU (30 frames)
+- **Feature extractor**: `EmotionFeatureService` — outputs **temporal sequences** for attention-based fusion:
+  - WavLM-Base+ → `[T_a, 768]` hidden-state sequence
+  - RoBERTa-Large → `[128, 1024]` token sequence
+  - ResNet50 + Linear(2048→256) + ReLU → `[30, 256]` frame sequence
+- **Why sequences?** ET-TACFN's cross-modal attention layers reason over the *order and timing* of audio frames and text tokens — essential for temporal emotion dynamics.
 - **Missing Modality Handling**: Graceful zero-padded fallback for audio-only messages
 
 ### Personality OCEAN Profiling
 
-A second `TransformerFusion` model processes the same video and builds a **Big Five personality profile**:
+A separate `TransformerFusion` model uses its own **`PersonalityFeatureService`** which outputs *pooled* embeddings (not sequences) — because personality is about the overall character of the entire clip, not moment-to-moment variation:
 
-- Each video message generates one OCEAN observation (saved to DB)
-- After **5+ completed sessions**, a stable profile is computed via Exponential Moving Average (α = 0.3)
-- The **Personality Insights** page shows trait evolution over time and stable average scores
+- WavLM → pooled `768-dim` vector
+- RoBERTa → pooled `768-dim` vector
+- ResNet50 → raw `2048-dim` avgpool vector
+
+Each video message generates one OCEAN observation (saved to DB). After **5+ completed sessions**, a stable profile is computed via Exponential Moving Average (α = 0.3). The **Personality Insights** page shows trait evolution over time and stable average scores.
 
 ---
 
