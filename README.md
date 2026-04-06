@@ -1,28 +1,129 @@
-# Multimodal Empathetical Conversational Companion (MECC)
+# 🧠 MECC — Multimodal Empathetical Conversational Companion
 
-An AI-powered empathetic companion that uses multimodal emotion recognition (audio + text) to provide emotionally intelligent responses.
+> An AI companion that truly *understands* you — detecting your emotions from your **voice**, **face**, and **words** simultaneously to deliver genuinely empathetic responses.
+
+---
+
+## ✨ What Makes MECC Different
+
+Most chatbots read only your words. MECC analyses **three information channels at once**:
+
+| Modality | Model | What it captures |
+|---|---|---|
+| 🎙️ Audio | WavLM-Base+ | Vocal tone, pitch, prosody |
+| 📝 Text | RoBERTa-Large | Semantic meaning, sentiment |
+| 👁️ Video | ResNet50 | Facial expressions, visual cues |
+
+These three streams are fused by a custom **ET-TACFN** (Emotion-aware Temporal Attentive Cross-modal Fusion Network) trained on the MER 2023 dataset, giving MECC a richer picture of your emotional state than any single-modality system can achieve.
+
+On top of emotion detection, MECC builds a **long-term OCEAN personality profile** for each user by running a separate `TransformerFusion` model on every video conversation, tracking how your Big Five personality traits evolve over time.
+
+---
+
+## 🖥️ Screenshots
+
+> Chat interface with live emotion detection, emotional journey analytics, and personality insights pages.
+
+---
 
 ## 🚀 Features
 
-- **Multimodal Emotion Recognition**: Analyzes both audio and text for accurate emotion detection
-- **Empathetic Responses**: Context-aware, emotion-adaptive conversations
-- **100% Free Stack**: No API costs - runs entirely locally on your GPU
-- **Real-time Speech**: Voice input and output with Whisper + Piper TTS
-- **Session Summaries**: Automatic conversation summaries with emotional journey tracking
+### Core
+- **True Multimodal Emotion Recognition** — Audio + Text + Video fused into one prediction
+- **Empathetic LLM Responses** — Llama 3.2 (local, via Ollama) guided by detected emotion and confidence
+- **Voice I/O** — Whisper STT + Piper TTS for a fully spoken conversation experience
+- **Webcam Recording** — In-browser MediaRecorder captures video + audio into a single WebM blob
+
+### Analytics & Memory
+- **Session History** — Every conversation saved with emotional journey timeline
+- **OCEAN Personality Profiling** — Big Five personality scores build up after 5+ sessions
+- **Personality Insights Page** — Track stable vs. evolving traits over multiple conversations
+- **Dashboard** — Recent sessions, dominant emotion stats, and session summaries
+
+### Technical
+- **Parallel Feature Extraction** — Audio, Text, and Visual encoders run concurrently via `ThreadPoolExecutor`
+- **FFmpeg WebM Support** — Video blobs from the browser are automatically transcoded before OpenCV processing
+- **JWT Authentication** — Secure per-user sessions, history, and personality profiles
+- **100% Local & Free** — No external API costs; all models run on your own GPU
+
+---
+
+## 🏗️ Architecture
+
+```
+Browser (React + TypeScript)
+        │   WebM blob (video + audio) + transcript
+        ▼
+FastAPI Backend
+        │
+        ├── Whisper STT ──────────────────────────► Text transcript
+        │
+        ├── EmotionFeatureService (parallel)
+        │     ├── WavLM-Base+  → [T_a, 768]  audio features
+        │     ├── RoBERTa-Large → [128, 1024] text features
+        │     └── ResNet50+256  → [30, 256]  visual features
+        │               │
+        │     ET-TACFN Classifier → emotion label + confidence
+        │
+        ├── (Background) PersonalityFeatureService (parallel)
+        │     ├── WavLM  → 768-dim
+        │     ├── RoBERTa → 768-dim
+        │     └── ResNet50 → 2048-dim
+        │               │
+        │     TransformerFusion → OCEAN scores → DB
+        │
+        ├── LLM (Llama 3.2 via Ollama)
+        │     System prompt injected with emotion + guidance
+        │     → empathetic response text
+        │
+        └── Piper TTS → WAV audio response
+```
+
+---
+
+## 📦 Tech Stack
+
+### Backend
+| Component | Technology |
+|---|---|
+| API Framework | FastAPI |
+| Deep Learning | PyTorch + CUDA |
+| Emotion Audio Encoder | WavLM-Base+ (Microsoft) |
+| Emotion Text Encoder | RoBERTa-Large |
+| Emotion Visual Encoder | ResNet50 + Linear(2048→256) |
+| Emotion Classifier | ET-TACFN (custom, trained on MER 2023) |
+| Personality Model | TransformerFusion (TACFN variant) |
+| Speech-to-Text | OpenAI Whisper |
+| Text-to-Speech | Piper TTS |
+| Local LLM | Llama 3.2:3b via Ollama |
+| Database | PostgreSQL + SQLAlchemy |
+| Video Processing | FFmpeg + OpenCV |
+
+### Frontend
+| Component | Technology |
+|---|---|
+| Framework | React 18 + TypeScript |
+| Build Tool | Vite |
+| Styling | Tailwind CSS |
+| Animations | Framer Motion |
+| State Management | Zustand |
+| Charts | Recharts |
+| Icons | Lucide React |
+
+---
 
 ## 📋 Prerequisites
 
-### Required Software
-1. **Python 3.11+**
-2. **PostgreSQL** (database)
-3. **Ollama** (local LLM server)
-4. **FFmpeg** (audio processing)
-5. **Node.js 18+** (frontend)
+| Requirement | Notes |
+|---|---|
+| Python 3.11+ | Backend runtime |
+| Node.js 18+ | Frontend build |
+| PostgreSQL 14+ | User data, sessions, emotion timeline |
+| Ollama | Local LLM server — [ollama.com](https://ollama.com/download) |
+| FFmpeg | Audio/video processing |
+| NVIDIA GPU (CUDA) | Strongly recommended; RTX 3050 4GB minimum |
 
-### Hardware
-- **GPU**: NVIDIA GPU with CUDA support recommended (tested on RTX 3050)
-- **RAM**: 8GB minimum, 16GB+ recommended
-- **Disk**: 10GB free space
+---
 
 ## 🛠️ Installation
 
@@ -34,139 +135,214 @@ cd Multimodal-Empathetical-Conversational-Companion
 
 ### 2. Backend Setup
 
-#### Install Dependencies
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Mac/Linux
+
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+# source venv/bin/activate
 
 pip install -r requirements.txt
-```
-
-#### Download Voice Model
-Piper TTS voice is NOT included in the repository (60MB). Download it manually:
-
-```bash
-# Download voice model
-curl -L -o backend/voices/en_US-lessac-medium.onnx \
-  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
-
-# Download config
-curl -L -o backend/voices/en_US-lessac-medium.onnx.json \
-  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
-```
-
-**Windows (PowerShell):**
-```powershell
-Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx" -OutFile "backend\voices\en_US-lessac-medium.onnx"
-
-Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json" -OutFile "backend\voices\en_US-lessac-medium.onnx.json"
-```
-
-#### Setup Database
-```bash
-# Create PostgreSQL database
-createdb mecc_db
-
-# Or via psql:
-psql -U postgres
-CREATE DATABASE mecc_db;
-\q
 ```
 
 #### Configure Environment
 ```bash
 cp .env.example .env
-# Edit .env with your database credentials
+# Edit .env with your PostgreSQL credentials
 ```
 
-#### Install External Tools
-```bash
-# Ollama (for LLM)
-# Download from: https://ollama.com/download
-ollama pull llama3.2:3b
-
-# FFmpeg (for audio)
-# Windows: choco install ffmpeg
-# Mac: brew install ffmpeg
-# Linux: sudo apt install ffmpeg
-```
-
-### 3. Frontend Setup
-```bash
-cd ../frontend
-npm install
-```
-
-## 🚀 Running the Application
-
-### Start Backend
-```bash
-cd backend
-venv\Scripts\activate
-python app.py
-# Backend runs on http://localhost:8000
-```
-
-### Start Ollama (separate terminal)
-```bash
-ollama serve
-```
-
-### Start Frontend
-```bash
-cd frontend
-npm run dev
-# Frontend runs on http://localhost:5173
-```
-
-## 📦 Tech Stack
-
-### Backend
-- **FastAPI** - REST API framework
-- **PyTorch** - Deep learning (GPU acceleration)
-- **Transformers** - WavLM, RoBERTa models
-- **Whisper** - Speech-to-text
-- **Piper TTS** - Text-to-speech
-- **Ollama** - Local LLM (Llama 3.2)
-- **PostgreSQL** - Database
-
-### Frontend
-- **React + TypeScript**
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-
-## 🔧 Configuration
-
-### Environment Variables (`.env`)
+Key environment variables:
 ```env
 DATABASE_URL=postgresql://postgres:password@localhost/mecc_db
-MODEL_CHECKPOINT_PATH=checkpoints/at.pth
+SECRET_KEY=your-secret-key-here
+
+# Model paths
+MODEL_CHECKPOINT_PATH=checkpoints/best_model.pt
+PERSONALITY_CHECKPOINT_PATH=checkpoints/personality/best_model.pt
+
+# LLM
 OLLAMA_MODEL=llama3.2:3b
 OLLAMA_BASE_URL=http://localhost:11434
+
+# Whisper
 WHISPER_MODEL_SIZE=base
+
+# Storage
 AUDIO_STORAGE_DIR=./audio_storage
 KEEP_AUDIO=false
 ```
 
-## 📊 Performance
+#### Create Database
+```bash
+psql -U postgres -c "CREATE DATABASE mecc_db;"
+```
 
-- **Message Processing**: ~15-20 seconds
-- **GPU Utilization**: Auto-detected (CUDA/CPU fallback)
-- **API Cost**: $0 (completely free!)
+#### Download Piper TTS Voice Model
+```powershell
+# Windows (PowerShell)
+Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx" `
+  -OutFile "backend\voices\en_US-lessac-medium.onnx"
 
-## 🤝 Contributing
+Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json" `
+  -OutFile "backend\voices\en_US-lessac-medium.onnx.json"
+```
 
-Contributions welcome! Please open an issue or pull request.
+```bash
+# macOS / Linux
+curl -L -o backend/voices/en_US-lessac-medium.onnx \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
+
+curl -L -o backend/voices/en_US-lessac-medium.onnx.json \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
+```
+
+#### Place Trained Model Checkpoints
+```
+backend/checkpoints/best_model.pt               ← ET-TACFN emotion model
+backend/checkpoints/personality/best_model.pt   ← Personality TransformerFusion model
+```
+
+#### Pull LLM
+```bash
+ollama pull llama3.2:3b
+```
+
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+```
+
+---
+
+## ▶️ Running the Application
+
+Open three terminals:
+
+**Terminal 1 — Ollama (LLM Server)**
+```bash
+ollama serve
+```
+
+**Terminal 2 — Backend**
+```bash
+cd backend
+venv\Scripts\activate   # Windows
+python app.py
+# → http://localhost:8000
+# → API docs: http://localhost:8000/docs
+```
+
+**Terminal 3 — Frontend**
+```bash
+cd frontend
+npm run dev
+# → http://localhost:5173
+```
+
+---
+
+## 🗂️ Project Structure
+
+```
+├── backend/
+│   ├── app.py                   # FastAPI app entry point
+│   ├── database.py              # SQLAlchemy models + helpers
+│   ├── requirements.txt
+│   ├── checkpoints/             # Trained model weights
+│   ├── feature_extractors/      # Audio, Text, Visual encoder wrappers
+│   ├── models/
+│   │   ├── emotion_classifier.py    # ET-TACFN architecture
+│   │   └── personality_model.py     # TransformerFusion architecture
+│   ├── routers/
+│   │   ├── analytics.py         # Session history, dashboard stats
+│   │   └── personality.py       # OCEAN profile endpoints
+│   ├── services/
+│   │   ├── conversation_service.py  # Main message pipeline orchestrator
+│   │   ├── emotion_feature_service.py  # ET-TACFN feature extraction
+│   │   ├── feature_service.py      # Personality feature extraction
+│   │   ├── emotion_service.py      # Emotion prediction
+│   │   ├── llm_service.py          # Ollama / Llama 3.2
+│   │   ├── tts_service.py          # Piper TTS
+│   │   └── transcription_service.py # Whisper STT
+│   └── voices/                  # Piper TTS voice files (download separately)
+│
+└── frontend/
+    └── src/
+        ├── api/client.ts        # All API calls
+        ├── components/
+        │   ├── Chat/            # ChatInterface, message bubbles
+        │   ├── Dashboard/       # Session summary, personality radar
+        │   └── UI/              # Shared components (EmotionBadge, etc.)
+        ├── hooks/
+        │   ├── useWebcamRecorder.ts    # MediaRecorder + WebM capture
+        │   └── useSpeechRecognition.ts # Web Speech API
+        ├── pages/
+        │   ├── Chat.tsx         # Main conversation page
+        │   ├── History.tsx      # Session history browser
+        │   ├── Dashboard.tsx    # Stats overview
+        │   └── PersonalityInsights.tsx  # OCEAN trait timeline
+        └── store/
+            ├── useEmotionStore.ts   # Session + message state
+            └── useAuthStore.ts      # Auth state
+```
+
+---
+
+## 📊 API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/auth/register` | Register new user |
+| `POST` | `/api/v1/auth/token` | Login, get JWT |
+| `POST` | `/api/v1/session/start` | Start new conversation session |
+| `POST` | `/api/v1/session/message` | Send message (multipart: text + WebM) |
+| `POST` | `/api/v1/session/end` | End session, get summary |
+| `GET`  | `/api/v1/analytics/dashboard` | Dashboard stats |
+| `GET`  | `/api/v1/analytics/history` | Session history list |
+| `GET`  | `/api/v1/analytics/session/{id}` | Session detail + emotion timeline |
+| `GET`  | `/api/v1/personality/profile` | OCEAN personality profile |
+| `GET`  | `/api/v1/personality/status` | Sessions complete / needed |
+
+Full interactive docs available at `http://localhost:8000/docs`
+
+---
+
+## 🧬 Model Details
+
+### ET-TACFN — Emotion Recognition
+
+The core emotion model is a custom **Emotion-aware Temporal Attentive Cross-modal Fusion Network** trained on the MER 2023 multimodal emotion recognition dataset.
+
+- **Emotions**: Neutral · Happy · Sad · Angry · Fearful · Disgust · Surprised · Calm
+- **Audio backbone**: WavLM-Base+ (768-dim sequence)
+- **Text backbone**: RoBERTa-Large (1024-dim, 128 max tokens)
+- **Visual backbone**: ResNet50 + Linear(2048→256) + ReLU (30 frames)
+- **Missing Modality Handling**: Graceful zero-padded fallback for audio-only messages
+
+### Personality OCEAN Profiling
+
+A second `TransformerFusion` model processes the same video and builds a **Big Five personality profile**:
+
+- Each video message generates one OCEAN observation (saved to DB)
+- After **5+ completed sessions**, a stable profile is computed via Exponential Moving Average (α = 0.3)
+- The **Personality Insights** page shows trait evolution over time and stable average scores
+
+---
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
 
 ## 🙏 Acknowledgments
 
-- Piper TTS voices from Rhasspy
-- Whisper from OpenAI
-- Llama models from Meta
-- WavLM from Microsoft
+- [MER 2023](https://github.com/zeroQiaoba/MER2023-Baseline) — multimodal emotion recognition dataset and baseline
+- [WavLM](https://github.com/microsoft/unilm/tree/master/wavlm) by Microsoft Research
+- [RoBERTa](https://huggingface.co/roberta-large) by Facebook AI
+- [Whisper](https://github.com/openai/whisper) by OpenAI
+- [Llama 3.2](https://ai.meta.com/llama/) by Meta AI
+- [Piper TTS](https://github.com/rhasspy/piper) by Rhasspy
