@@ -3,11 +3,11 @@ Emotion Feature Service
 =======================
 Dedicated feature extraction pipeline for the ET-TACFN emotion model.
 
-Matches the original training pipeline exactly:
-  Audio  → WavLM-Base+   → [T_a, 768]    (microsoft/wavlm-base-plus)
-  Text   → RoBERTa-large → [128, 1024]   (roberta-large)
-  Visual → ResNet50 +
-           Linear(2048→256)+ReLU → [30, 256] 
+Matches the RETRAINED model training pipeline exactly:
+  Audio  → WavLM-base       → [T_a, 768]   (microsoft/wavlm-base)
+  Text   → RoBERTa-base      → [T_t, 768]   (roberta-base)
+  Visual → None → MissingModalityHandler fills in the embedding
+              (visual extraction removed; new model trained in audio+text mode)
 """
 
 import os
@@ -30,17 +30,17 @@ TARGET_SR         = 16000
 
 
 class _EmotionAudioEncoder:
-    """WavLM-Base+ → [T_a, 768] hidden-state sequence."""
+    """WavLM-base → [T_a, 768] hidden-state sequence."""
 
     def __init__(self):
         from transformers import Wav2Vec2FeatureExtractor, AutoModel
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info("Loading WavLM-Base+ for emotion feature extraction…")
+        logger.info("Loading WavLM-base for emotion feature extraction…")
         
-        self.processor = Wav2Vec2FeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
-        self.model = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device)
+        self.processor = Wav2Vec2FeatureExtractor.from_pretrained("microsoft/wavlm-base")
+        self.model = AutoModel.from_pretrained("microsoft/wavlm-base").to(self.device)
         self.model.eval()
-        logger.info("✅ WavLM-Base+ loaded")
+        logger.info("✅ WavLM-base loaded")
 
     @torch.no_grad()
     def encode(self, audio_path: str) -> np.ndarray:
@@ -89,17 +89,17 @@ class _EmotionAudioEncoder:
 
 
 class _EmotionTextEncoder:
-    """RoBERTa-large → [128, 1024] token sequence."""
+    """RoBERTa-base → [T_t, 768] token sequence."""
 
     def __init__(self):
         from transformers import RobertaTokenizer, RobertaModel
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info("Loading RoBERTa-large for emotion feature extraction…")
+        logger.info("Loading RoBERTa-base for emotion feature extraction…")
         
-        self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
-        self.model     = RobertaModel.from_pretrained("roberta-large").to(self.device)
+        self.tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+        self.model     = RobertaModel.from_pretrained("roberta-base").to(self.device)
         self.model.eval()
-        logger.info("✅ RoBERTa-large loaded")
+        logger.info("✅ RoBERTa-base loaded")
 
     @torch.no_grad()
     def encode(self, text: str) -> np.ndarray:
@@ -116,7 +116,7 @@ class _EmotionTextEncoder:
             return out.last_hidden_state.squeeze(0).cpu().numpy().astype(np.float32)
         except Exception as e:
             logger.error(f"EmotionTextEncoder failed: {e}")
-            return np.zeros((TEXT_MAX_LEN, 1024), dtype=np.float32)
+            return np.zeros((TEXT_MAX_LEN, 768), dtype=np.float32)
 
 
 class _EmotionVisualEncoder:

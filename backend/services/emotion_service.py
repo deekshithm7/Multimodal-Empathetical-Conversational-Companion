@@ -3,11 +3,13 @@ MECC Emotion Recognition Service
 =================================
 Handles emotion detection using the ET-TACFN trimodal model.
 
-4-class output based on original model definition:
-  0 → happy
-  1 → sad
-  2 → angry
-  3 → neutral
+Retrained model (April 2026):
+  Audio  → WavLM-base     → [T_a, 768]
+  Text   → RoBERTa-base   → [T_t, 768]
+  Visual → None (MissingModalityHandler provides learned fallback)
+
+4-class output:
+  0 → happy  1 → sad  2 → angry  3 → neutral
 """
 
 import logging
@@ -27,7 +29,7 @@ class EmotionRecognitionService:
 
     def __init__(
         self,
-        checkpoint_path: str = "checkpoints/atv_emotion.pth",
+        checkpoint_path: str = "checkpoints/best_model.pt",
         device: str = "cuda",
     ):
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
@@ -42,7 +44,6 @@ class EmotionRecognitionService:
         )
         self.model.eval()
 
-        # UPDATED: The exact output order mapping specified by the model description
         self.emotion_map = {0: "happy", 1: "sad", 2: "angry", 3: "neutral"}
         logger.info("✅ EmotionRecognitionService (ET-TACFN) initialized")
 
@@ -68,10 +69,12 @@ class EmotionRecognitionService:
         Predict emotion from pre-extracted feature sequences.
         """
         try:
-            # Note: Audio fallback shape uses 768 to match WavLM-Base+
-            audio_t  = self._to_tensor(audio_features,  fallback_shape=(1, 1,   768))
-            text_t   = self._to_tensor(text_features,   fallback_shape=(1, 128, 1024))
-            visual_t = self._to_tensor(visual_features, fallback_shape=(1, 30,  256))
+            # Audio: [T_a, 768] (WavLM-base)
+            # Text:  [T_t, 768] (RoBERTa-base)
+            # Visual: None — MissingModalityHandler provides learned embedding
+            audio_t  = self._to_tensor(audio_features,  fallback_shape=(1, 1, 768))
+            text_t   = self._to_tensor(text_features,   fallback_shape=(1, 1, 768))
+            visual_t = None   # new model trained without visual; handler fills this in
 
             with torch.no_grad():
                 logits, _info = self.model(
@@ -100,7 +103,7 @@ class EmotionRecognitionService:
 _emotion_service_instance: Optional[EmotionRecognitionService] = None
 
 def get_emotion_service(
-    checkpoint_path: str = "checkpoints/atv_emotion.pth",
+    checkpoint_path: str = "checkpoints/best_model.pt",
     device: str = "cuda",
 ) -> EmotionRecognitionService:
     global _emotion_service_instance
