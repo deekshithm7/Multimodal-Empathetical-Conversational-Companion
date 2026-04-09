@@ -13,6 +13,7 @@ router = APIRouter(
 
 @router.get("/dashboard")
 async def get_dashboard_stats(
+    timeframe: str = "4weeks",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -27,47 +28,39 @@ async def get_dashboard_stats(
         Conversation.user_id == current_user.id
     ).scalar() or 0
     
-    # 3. Emotion Aggregate (Last 7 days)
-    seven_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
-    
+    # 3. Emotion window — driven by timeframe param
+    now = datetime.datetime.utcnow()
+    if timeframe == "all":
+        cutoff = None
+    elif timeframe == "6months":
+        cutoff = now - datetime.timedelta(days=180)
+    else:  # default: 4weeks
+        cutoff = now - datetime.timedelta(days=28)
+
     # Get all emotions from user's conversations
-    # We need to join EmotionTimeline -> Message -> Conversation -> User
-    # Or EmotionTimeline -> Conversation (since we assume we might link them, but ET has conversation_id)
-    # Let's verify ET has conversation_id. Yes.
-    
-    # Check if we can filter ET by conversations belonging to user
     user_conversation_ids = db.query(Conversation.id).filter(
         Conversation.user_id == current_user.id
     ).scalar_subquery()
-    
+
+    timeline_filter = [EmotionTimeline.conversation_id.in_(user_conversation_ids)]
+    if cutoff:
+        timeline_filter.append(EmotionTimeline.timestamp >= cutoff)
+
     emotion_stats = db.query(
         EmotionTimeline.emotion,
         func.count(EmotionTimeline.id)
-    ).filter(
-        EmotionTimeline.conversation_id.in_(user_conversation_ids),
-        EmotionTimeline.timestamp >= seven_days_ago
-    ).group_by(EmotionTimeline.emotion).all()
-    
+    ).filter(*timeline_filter).group_by(EmotionTimeline.emotion).all()
+
     emotion_distribution = {e: c for e, c in emotion_stats}
-    
-    # 5. Emotion Timeline (Last 7 days daily for chart)
-    # We want to group by Date and Emotion
-    # Note: func.date() works in SQLite. For PostgreSQL use func.cast(timestamp, Date) or similar.
-    # Assuming standard behavior or handling both might be tricky without dialect detection.
-    # Let's try a safe approach: Fetch all recent data and aggregate in Python to avoid dialect issues.
-    
-    recent_emotions = db.query(EmotionTimeline).filter(
-        EmotionTimeline.conversation_id.in_(user_conversation_ids),
-        EmotionTimeline.timestamp >= seven_days_ago
-    ).all()
-    
-    timeline_data = {} # { 'YYYY-MM-DD': {'happy': 0, 'sad': 0...} }
-    
+
+    # 5. Emotion Timeline chart — aggregate by day, sort by real date
+    recent_emotions = db.query(EmotionTimeline).filter(*timeline_filter).all()
+
+    timeline_data = {}  # { datetime.date: {'happy': 0, ...} }
+
     for entry in recent_emotions:
         if not entry.timestamp:
             continue
-        
-        # Cross-database datetime handling
         if isinstance(entry.timestamp, str):
             try:
                 dt = datetime.datetime.fromisoformat(entry.timestamp.replace("Z", "+00:00"))
@@ -75,23 +68,19 @@ async def get_dashboard_stats(
                 continue
         else:
             dt = entry.timestamp
-            
-        date_str = dt.strftime('%b %d')
-        if date_str not in timeline_data:
-            timeline_data[date_str] = {}
-        
+
+        day = dt.date()  # real date object — sorts correctly
+        if day not in timeline_data:
+            timeline_data[day] = {}
         emotion = entry.emotion
-        timeline_data[date_str][emotion] = timeline_data[date_str].get(emotion, 0) + 1
-        
-    # Convert to list for frontend
+        timeline_data[day][emotion] = timeline_data[day].get(emotion, 0) + 1
+
+    # Sort by real date ascending, then format label
     formatted_timeline = []
-    for date_str, counts in timeline_data.items():
-        item = {'date': date_str}
-        item.update(counts)
+    for day in sorted(timeline_data.keys()):
+        item = {'date': day.strftime('%b %d')}
+        item.update(timeline_data[day])
         formatted_timeline.append(item)
-        
-    # Sort by date
-    formatted_timeline.sort(key=lambda x: x['date'])
 
     # 6. Recent Activity
     recent_convos = db.query(Conversation).filter(

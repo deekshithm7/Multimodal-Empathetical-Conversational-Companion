@@ -206,8 +206,8 @@ export const api = {
     /**
      * Get Dashboard Stats
      */
-    async getDashboardStats(): Promise<any> {
-        const response = await fetch(`${API_URL}/api/v1/analytics/dashboard`, {
+    async getDashboardStats(timeframe: string = '4weeks'): Promise<any> {
+        const response = await fetch(`${API_URL}/api/v1/analytics/dashboard?timeframe=${timeframe}`, {
             headers: this.privateHeaders(),
         });
         if (!response.ok) throw new Error('Failed to fetch stats');

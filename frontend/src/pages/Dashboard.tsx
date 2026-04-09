@@ -22,12 +22,14 @@ export const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
     const [personalityData, setPersonalityData] = useState<any>(null);
+    const [timeframe, setTimeframe] = useState<'4weeks' | '6months' | 'all'>('4weeks');
+    const [timelineLoading, setTimelineLoading] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const [stats, personality] = await Promise.all([
-                    api.getDashboardStats(),
+                    api.getDashboardStats(timeframe),
                     api.getPersonalityProfile(),
                 ]);
                 setData(stats);
@@ -40,6 +42,24 @@ export const Dashboard = () => {
         };
         fetchData();
     }, []);
+
+    // Refetch only timeline when timeframe changes
+    useEffect(() => {
+        if (loading) return; // skip on initial load
+        const refetch = async () => {
+            setTimelineLoading(true);
+            try {
+                const stats = await api.getDashboardStats(timeframe);
+                setData(stats);
+            } catch (e) {
+                console.error('Failed to refresh timeline', e);
+            } finally {
+                setTimelineLoading(false);
+            }
+        };
+        refetch();
+    }, [timeframe]);
+
 
     const traits = personalityData?.ready && personalityData?.profile 
         ? Object.entries(personalityData.profile).map(([key, val]: any) => ({
@@ -132,9 +152,30 @@ export const Dashboard = () => {
             </div>
 
             <div className="grid lg:grid-cols-3 gap-6 mb-8">
-                {/* Emotion Timeline (Main Chart) */}
+            {/* Emotion Timeline (Main Chart) */}
                 <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-white/5 bg-[#0f1115]/50 min-h-[400px] flex flex-col">
-                    <EmotionTimeline data={data?.emotion_timeline || []} />
+                    {/* Timeline header with timeframe toggle */}
+                    <div className="flex items-center justify-between mb-2">
+                        <span />
+                        <div className="flex items-center gap-1 bg-white/5 rounded-full p-1">
+                            {(['4weeks', '6months', 'all'] as const).map((tf) => (
+                                <button
+                                    key={tf}
+                                    onClick={() => setTimeframe(tf)}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                                        timeframe === tf
+                                            ? 'bg-teal-500 text-white shadow'
+                                            : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    {tf === '4weeks' ? '4 Weeks' : tf === '6months' ? '6 Months' : 'All Time'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className={`flex-1 transition-opacity ${timelineLoading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                        <EmotionTimeline data={data?.emotion_timeline || []} />
+                    </div>
                 </div>
 
                 {/* Personality Profile */}
