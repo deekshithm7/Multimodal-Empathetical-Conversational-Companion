@@ -113,7 +113,7 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
     expiry = datetime.utcnow() + timedelta(minutes=30)
     
     # Store token in user's preferences dict (simple approach - no separate table needed)
-    prefs = user.preferences or {}
+    prefs = dict(user.preferences) if user.preferences else {}
     prefs["_reset_token"] = token
     prefs["_reset_expiry"] = expiry.isoformat()
     user.preferences = prefs
@@ -156,9 +156,10 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
     # Update password
     target_user.hashed_password = get_password_hash(request.new_password)
     # Clear the reset token
-    prefs.pop("_reset_token", None)
-    prefs.pop("_reset_expiry", None)
-    target_user.preferences = prefs
+    new_prefs = dict(target_user.preferences) if target_user.preferences else {}
+    new_prefs.pop("_reset_token", None)
+    new_prefs.pop("_reset_expiry", None)
+    target_user.preferences = new_prefs
     db.commit()
     
     return {"message": "Password reset successfully. You can now log in with your new password."}
