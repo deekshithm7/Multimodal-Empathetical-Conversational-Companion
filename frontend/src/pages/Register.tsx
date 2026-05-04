@@ -81,7 +81,7 @@ export const Register = () => {
         await registerUser(data.fullName, data.email, data.password);
 
         if (useAuthStore.getState().isAuthenticated) {
-            toast.success('Account created successfully! Welcome to MECC.');
+            toast.success('Account created successfully! Welcome to MindSculpt AI.');
             navigate('/dashboard');
         }
     };
@@ -95,7 +95,7 @@ export const Register = () => {
 
             <div className="glass-panel max-w-md w-full p-8 relative z-10">
                 <div className="text-center mb-6">
-                    <h1 className="text-3xl font-serif text-teal-400 mb-2">MECC</h1>
+                    <h1 className="text-3xl font-serif text-teal-400 mb-2">MindSculpt AI</h1>
                     <h2 className="text-2xl font-semibold text-slate-100 mb-1">Create your account</h2>
                     <p className="text-slate-400 text-sm">Start your empathetic AI journey</p>
                 </div>

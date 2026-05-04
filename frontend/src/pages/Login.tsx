@@ -36,7 +36,7 @@ export const Login = () => {
 
         const isAuthenticated = useAuthStore.getState().isAuthenticated;
         if (isAuthenticated) {
-            toast.success('Welcome back to MECC!');
+            toast.success('Welcome back to MindSculpt AI!');
             navigate('/dashboard');
         }
     };
@@ -52,7 +52,7 @@ export const Login = () => {
             <div className="glass-panel max-w-md w-full p-8 relative z-10">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-serif text-teal-400 mb-2">MECC</h1>
+                    <h1 className="text-3xl font-serif text-teal-400 mb-2">MindSculpt AI</h1>
                     <h2 className="text-2xl font-semibold text-slate-100 mb-1">Welcome back</h2>
                     <p className="text-slate-400 text-sm">Sign in to continue your journey</p>
                 </div>
@@ -155,7 +155,7 @@ export const Login = () => {
                 {/* Demo Credentials */}
                 <div className="mt-6 p-3 bg-blue-500/10 border border-blue-400/30 rounded-lg">
                     <p className="text-xs text-blue-300 text-center">
-                        <strong>Demo:</strong> demo@mecc.ai / demo123
+                        <strong>Demo:</strong> demo@mindsculpt.ai / demo123
                     </p>
                 </div>
             </div>

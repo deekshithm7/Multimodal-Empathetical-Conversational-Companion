@@ -15,7 +15,7 @@ const LandingNav = () => {
                 <div className="w-8 h-8 rounded-full bg-teal-500/20 flex items-center justify-center">
                     <Activity size={18} className="text-teal-400" />
                 </div>
-                <span className="text-xl font-serif text-slate-100 font-medium tracking-wide">MECC</span>
+                <span className="text-xl font-serif text-slate-100 font-medium tracking-wide">MindSculpt AI</span>
             </div>
 
             <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
@@ -129,7 +129,7 @@ const Features = () => {
                 <div className="text-center mb-16">
                     <h2 className="text-3xl font-serif text-slate-100 mb-4">Multimodal Intelligence</h2>
                     <p className="text-slate-400 max-w-2xl mx-auto">
-                        MECC captures nuances that text-only AIs miss by analyzing three distinct layers of communication simultaneously.
+                        MindSculpt AI captures nuances that text-only AIs miss by analyzing three distinct layers of communication simultaneously.
                     </p>
                 </div>
 
@@ -171,7 +171,7 @@ const HowItWorks = () => {
         {
             num: '01',
             title: 'Start a Session',
-            desc: 'Open the chat and begin speaking naturally. MECC activates your microphone and camera to capture your voice and facial expressions in real-time.'
+            desc: 'Open the chat and begin speaking naturally. MindSculpt AI activates your microphone and camera to capture your voice and facial expressions in real-time.'
         },
         {
             num: '02',
@@ -181,7 +181,7 @@ const HowItWorks = () => {
         {
             num: '03',
             title: 'Empathetic Response',
-            desc: 'MECC synthesizes the emotion signals and generates a deeply personalized, context-aware response that reflects your current emotional state.'
+            desc: 'MindSculpt AI synthesizes the emotion signals and generates a deeply personalized, context-aware response that reflects your current emotional state.'
         },
         {
             num: '04',
@@ -197,7 +197,7 @@ const HowItWorks = () => {
                 <div className="text-center mb-16">
                     <h2 className="text-3xl font-serif text-slate-100 mb-4">How It Works</h2>
                     <p className="text-slate-400 max-w-2xl mx-auto">
-                        From your first word to actionable emotional insights — here's the MECC pipeline.
+                        From your first word to actionable emotional insights — here's the MindSculpt AI pipeline.
                     </p>
                 </div>
 
@@ -222,7 +222,7 @@ const About = () => {
             <div className="container mx-auto px-6">
                 <div className="max-w-4xl mx-auto">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl font-serif text-slate-100 mb-4">About MECC</h2>
+                        <h2 className="text-3xl font-serif text-slate-100 mb-4">About MindSculpt AI</h2>
                         <p className="text-slate-400 max-w-2xl mx-auto">
                             Built with empathy at its core.
                         </p>
@@ -231,12 +231,12 @@ const About = () => {
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="space-y-6">
                             <p className="text-slate-300 leading-relaxed">
-                                MECC (Multimodal Empathetical Conversational Companion) is an AI research project
+                                MindSculpt AI is an AI research project
                                 that bridges the gap between human emotion and machine understanding.
                             </p>
                             <p className="text-slate-400 leading-relaxed">
                                 By combining state-of-the-art models for audio, visual, and linguistic analysis,
-                                MECC creates conversations that feel genuinely understood — not just heard.
+                                MindSculpt AI creates conversations that feel genuinely understood — not just heard.
                             </p>
                             <p className="text-slate-400 leading-relaxed">
                                 Built with a privacy-first approach, your emotional data is processed securely
@@ -271,7 +271,7 @@ const Footer = () => {
             <div className="container mx-auto px-6 text-center">
                 <div className="flex items-center justify-center gap-2 mb-8">
                     <Activity size={24} className="text-teal-500 opacity-80" />
-                    <span className="text-2xl font-serif text-slate-200">MECC</span>
+                    <span className="text-2xl font-serif text-slate-200">MindSculpt AI</span>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-8 text-slate-400 mb-8 text-sm">
@@ -282,7 +282,7 @@ const Footer = () => {
                 </div>
 
                 <p className="text-xs text-slate-600">
-                    © {new Date().getFullYear()} MECC Project. All rights reserved.<br />
+                    © {new Date().getFullYear()} MindSculpt AI. All rights reserved.<br />
                     Designed for empathy, built with privacy.
                 </p>
             </div>

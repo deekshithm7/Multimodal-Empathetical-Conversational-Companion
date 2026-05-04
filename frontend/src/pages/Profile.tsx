@@ -368,7 +368,7 @@ export const Profile = () => {
                                         <Shield size={20} className="text-green-400" /> Data & Privacy
                                     </h3>
                                     <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                                        MECC is built with privacy-first principles. Your emotional data is processed locally whenever possible and stored securely. You have full control over your data.
+                                        MindSculpt AI is built with privacy-first principles. Your emotional data is processed locally whenever possible and stored securely. You have full control over your data.
                                     </p>
 
                                     <div className="space-y-4">

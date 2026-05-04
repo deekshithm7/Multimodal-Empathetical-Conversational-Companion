@@ -1,5 +1,5 @@
 /**
- * MECC Backend API Client
+ * MindSculpt AI Backend API Client
  * Communicates with session-based backend endpoints
  */
 

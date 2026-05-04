@@ -56,7 +56,7 @@ export const TopNav = () => {
                         <Activity size={18} className="text-teal-400" />
                     </div>
                     <span className="font-serif text-xl text-slate-200 tracking-wide group-hover:text-white transition-colors">
-                        MECC
+                        MindSculpt AI
                     </span>
                 </Link>
 
