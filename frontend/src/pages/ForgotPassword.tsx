@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, CheckCircle, Mail } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Mail, Copy, ExternalLink } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
+import { useToast } from '../components/UI/Toast';
+import { api } from '../api/client';
 
 const forgotPasswordSchema = z.object({
     email: z.string().email('Invalid email address')
@@ -15,9 +17,12 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export const ForgotPassword = () => {
-    const { forgotPassword, isLoading } = useAuthStore();
+    const { isLoading } = useAuthStore();
+    const toast = useToast();
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [cooldown, setCooldown] = useState(0);
+    const [resetToken, setResetToken] = useState<string | null>(null);
+    const [resetUrl, setResetUrl] = useState<string | null>(null);
 
     const {
         register,
@@ -29,9 +34,17 @@ export const ForgotPassword = () => {
     });
 
     const onSubmit = async (data: ForgotPasswordFormData) => {
-        await forgotPassword(data.email);
-        setIsSubmitted(true);
-        startCooldown();
+        try {
+            const result = await api.forgotPassword(data.email);
+            setIsSubmitted(true);
+            if (result.token) {
+                setResetToken(result.token);
+                setResetUrl(result.reset_url || `/reset-password?token=${result.token}`);
+            }
+            startCooldown();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to request password reset');
+        }
     };
 
     const startCooldown = () => {
@@ -48,8 +61,13 @@ export const ForgotPassword = () => {
     };
 
     const handleResend = () => {
-        // Re-trigger the logic
         onSubmit({ email: getValues('email') });
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text).then(() => {
+            toast.success('Copied to clipboard!');
+        });
     };
 
     return (
@@ -90,24 +108,54 @@ export const ForgotPassword = () => {
                             <CheckCircle size={32} className="text-teal-400" />
                         </div>
 
-                        <h2 className="text-xl font-semibold text-slate-100 mb-2">Check your inbox</h2>
-                        <p className="text-slate-400 text-sm mb-6">
-                            We've sent a password reset link to<br />
+                        <h2 className="text-xl font-semibold text-slate-100 mb-2">Reset Link Generated</h2>
+                        <p className="text-slate-400 text-sm mb-4">
+                            A password reset link has been generated for<br />
                             <span className="text-slate-200 font-medium">{getValues('email')}</span>.
-                            <br />It expires in 30 minutes.
                         </p>
 
+                        {resetToken && resetUrl ? (
+                            <div className="mb-4 space-y-3 text-left">
+                                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                    <p className="text-xs text-amber-400 font-medium mb-1">⚠️ Email not configured — use this link directly:</p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <code className="text-xs text-slate-300 bg-white/5 px-2 py-1 rounded flex-1 truncate">
+                                            {window.location.origin}{resetUrl}
+                                        </code>
+                                        <button
+                                            onClick={() => copyToClipboard(`${window.location.origin}${resetUrl}`)}
+                                            className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors flex-shrink-0"
+                                            title="Copy link"
+                                        >
+                                            <Copy size={14} />
+                                        </button>
+                                        <a
+                                            href={resetUrl}
+                                            className="p-1.5 rounded bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 hover:text-teal-300 transition-colors flex-shrink-0"
+                                            title="Open reset page"
+                                        >
+                                            <ExternalLink size={14} />
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-slate-500 text-xs mb-4">Check your inbox — it expires in 30 minutes.</p>
+                        )}
+
                         <div className="space-y-4">
-                            <Button
-                                variant="outline"
-                                className="w-full justify-center"
-                                onClick={() => window.open('https://gmail.com', '_blank')}
-                            >
-                                Open Email App
-                            </Button>
+                            {resetUrl && (
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-center"
+                                    onClick={() => window.open(resetUrl, '_self')}
+                                >
+                                    Go to Reset Page
+                                </Button>
+                            )}
 
                             <div className="text-sm text-slate-400">
-                                Didn't receive the email?{' '}
+                                Didn't get it?{' '}
                                 {cooldown > 0 ? (
                                     <span className="text-slate-500">Resend in {cooldown}s</span>
                                 ) : (

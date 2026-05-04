@@ -19,9 +19,9 @@ const LandingNav = () => {
             </div>
 
             <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-                <a href="#how-it-works" className="hover:text-teal-400 transition-colors">How it Works</a>
-                <a href="#features" className="hover:text-teal-400 transition-colors">Features</a>
-                <a href="#about" className="hover:text-teal-400 transition-colors">About</a>
+                <a href="#how-it-works" onClick={(e) => { e.preventDefault(); document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' }); }} className="hover:text-teal-400 transition-colors cursor-pointer">How it Works</a>
+                <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' }); }} className="hover:text-teal-400 transition-colors cursor-pointer">Features</a>
+                <a href="#about" onClick={(e) => { e.preventDefault(); document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); }} className="hover:text-teal-400 transition-colors cursor-pointer">About</a>
             </div>
 
             <div className="flex items-center gap-4">
@@ -165,6 +165,105 @@ const Features = () => {
     );
 };
 
+// How it Works Section
+const HowItWorks = () => {
+    const steps = [
+        {
+            num: '01',
+            title: 'Start a Session',
+            desc: 'Open the chat and begin speaking naturally. MECC activates your microphone and camera to capture your voice and facial expressions in real-time.'
+        },
+        {
+            num: '02',
+            title: 'Multimodal Analysis',
+            desc: 'Our AI simultaneously analyzes your audio tone, facial micro-expressions, and linguistic patterns using three specialized neural models.'
+        },
+        {
+            num: '03',
+            title: 'Empathetic Response',
+            desc: 'MECC synthesizes the emotion signals and generates a deeply personalized, context-aware response that reflects your current emotional state.'
+        },
+        {
+            num: '04',
+            title: 'Track Your Journey',
+            desc: 'Review session histories, emotion timelines, and personality insights on your dashboard to understand your emotional patterns over time.'
+        }
+    ];
+
+    return (
+        <section id="how-it-works" className="py-24 bg-[#0D1B2A] relative">
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0a0c10] to-[#0D1B2A]" />
+            <div className="container mx-auto px-6 relative z-10">
+                <div className="text-center mb-16">
+                    <h2 className="text-3xl font-serif text-slate-100 mb-4">How It Works</h2>
+                    <p className="text-slate-400 max-w-2xl mx-auto">
+                        From your first word to actionable emotional insights — here's the MECC pipeline.
+                    </p>
+                </div>
+
+                <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
+                    {steps.map((step, i) => (
+                        <div key={i} className="glass-panel p-8 rounded-2xl border border-white/10 hover:border-teal-500/30 transition-colors group">
+                            <div className="text-5xl font-bold text-teal-500/20 group-hover:text-teal-500/30 transition-colors mb-4 font-serif">{step.num}</div>
+                            <h3 className="text-xl font-semibold text-slate-100 mb-3">{step.title}</h3>
+                            <p className="text-slate-400 leading-relaxed">{step.desc}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+};
+
+// About Section
+const About = () => {
+    return (
+        <section id="about" className="py-24 bg-[#0a0c10] relative">
+            <div className="container mx-auto px-6">
+                <div className="max-w-4xl mx-auto">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl font-serif text-slate-100 mb-4">About MECC</h2>
+                        <p className="text-slate-400 max-w-2xl mx-auto">
+                            Built with empathy at its core.
+                        </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="space-y-6">
+                            <p className="text-slate-300 leading-relaxed">
+                                MECC (Multimodal Empathetical Conversational Companion) is an AI research project
+                                that bridges the gap between human emotion and machine understanding.
+                            </p>
+                            <p className="text-slate-400 leading-relaxed">
+                                By combining state-of-the-art models for audio, visual, and linguistic analysis,
+                                MECC creates conversations that feel genuinely understood — not just heard.
+                            </p>
+                            <p className="text-slate-400 leading-relaxed">
+                                Built with a privacy-first approach, your emotional data is processed securely
+                                and you retain full control over what's stored and shared.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {[
+                                { label: 'Emotion Classes', value: '8' },
+                                { label: 'Modal Streams', value: '3' },
+                                { label: 'Response Time', value: '<2s' },
+                                { label: 'Privacy First', value: '✓' },
+                            ].map((stat, i) => (
+                                <div key={i} className="glass-panel p-6 rounded-xl border border-white/10 text-center">
+                                    <div className="text-3xl font-bold text-teal-400 mb-1">{stat.value}</div>
+                                    <div className="text-xs text-slate-500 uppercase tracking-wider">{stat.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+};
+
 // Footer
 const Footer = () => {
     return (
@@ -197,6 +296,8 @@ export const Landing = () => {
             <LandingNav />
             <Hero />
             <Features />
+            <HowItWorks />
+            <About />
 
             {/* CTA Section */}
             <section className="py-24 relative overflow-hidden">

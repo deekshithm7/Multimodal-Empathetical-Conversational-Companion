@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from database import get_db, User
-from utils.auth import get_current_user, get_password_hash
+from utils.auth import get_current_user, get_password_hash, verify_password
 
 router = APIRouter(
     prefix="/api/v1/users",
@@ -13,6 +13,7 @@ router = APIRouter(
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
+    current_password: Optional[str] = None
     password: Optional[str] = None
     preferences: Optional[dict] = None
 
@@ -43,6 +44,10 @@ async def update_user_me(
             current_user.email = user_update.email
             
     if user_update.password:
+        if not user_update.current_password:
+            raise HTTPException(status_code=400, detail="Current password is required to set a new password")
+        if not verify_password(user_update.current_password, current_user.hashed_password):
+            raise HTTPException(status_code=400, detail="Incorrect current password")
         current_user.hashed_password = get_password_hash(user_update.password)
         
     if user_update.preferences is not None:

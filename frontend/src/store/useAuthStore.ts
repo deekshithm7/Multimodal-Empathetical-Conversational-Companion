@@ -121,20 +121,41 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            updateProfile: async (_data: Partial<User>) => {
+            updateProfile: async (data: Partial<User>) => {
                 set({ isLoading: true, error: null });
-                // Pending backend endpoint for specific update or reuse /users/me
-                set({ isLoading: false }); // Placeholder
+                try {
+                    const updatedUser = await api.updateProfile(data as any);
+                    set(prev => ({
+                        user: prev.user ? { ...prev.user, ...updatedUser } : null,
+                        isLoading: false
+                    }));
+                } catch (err: any) {
+                    set({ error: err.message || 'Update failed', isLoading: false });
+                    throw err;
+                }
             },
 
-            forgotPassword: async (_email: string) => {
-                // Placeholder
-                await new Promise(resolve => setTimeout(resolve, 500));
+            forgotPassword: async (email: string) => {
+                set({ isLoading: true, error: null });
+                try {
+                    await api.forgotPassword(email);
+                } catch (err: any) {
+                    set({ error: err.message || 'Request failed' });
+                    throw err;
+                } finally {
+                    set({ isLoading: false });
+                }
             },
 
-            resetPassword: async (_token: string, _password: string) => {
-                // Placeholder
-                await new Promise(resolve => setTimeout(resolve, 500));
+            resetPassword: async (token: string, password: string) => {
+                set({ isLoading: true, error: null });
+                try {
+                    await api.resetPassword(token, password);
+                    set({ isLoading: false });
+                } catch (err: any) {
+                    set({ error: err.message || 'Reset failed', isLoading: false });
+                    throw err;
+                }
             },
 
             clearError: () => set({ error: null })

@@ -7,9 +7,14 @@ import {
     Trash2,
     Moon,
     Volume2,
-    MessageSquare
+    MessageSquare,
+    Lock,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
@@ -23,11 +28,25 @@ export const Profile = () => {
     const toast = useToast();
     const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'privacy'>('profile');
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
+    const togglePw = (field: 'current' | 'new' | 'confirm') =>
+        setShowPw(prev => ({ ...prev, [field]: !prev[field] }));
+
+    // Password change schema
+    const passwordSchema = z.object({
+        current_password: z.string().min(1, 'Current password is required'),
+        new_password: z.string().min(8, 'New password must be at least 8 characters'),
+        confirm_password: z.string()
+    }).refine(d => d.new_password === d.confirm_password, {
+        message: "Passwords don't match",
+        path: ['confirm_password']
+    });
 
     // Preferences State
     const [preferences, setPreferences] = useState({
         response_style: user?.preferences?.response_style || 'warm',
-        theme: user?.preferences?.theme || 'dark', // actually this might be global?
+        theme: user?.preferences?.theme || 'dark',
         voice_enabled: user?.preferences?.voice_enabled ?? true,
         store_history: user?.preferences?.store_history ?? true,
         share_data: user?.preferences?.share_data ?? false,
@@ -40,6 +59,10 @@ export const Profile = () => {
         }
     });
 
+    const { register: registerPw, handleSubmit: handleSubmitPw, reset: resetPw, formState: { errors: pwErrors } } = useForm<z.infer<typeof passwordSchema>>({
+        resolver: zodResolver(passwordSchema)
+    });
+
     const onSubmitProfile = async (data: any) => {
         try {
             const updatedUser = await api.updateProfile(data);
@@ -48,6 +71,23 @@ export const Profile = () => {
         } catch (error) {
             console.error("Profile update failed", error);
             toast.error("Failed to update profile");
+        }
+    };
+
+    const onChangePassword = async (data: z.infer<typeof passwordSchema>) => {
+        setIsChangingPassword(true);
+        try {
+            await api.updateProfile({ 
+                password: data.new_password,
+                current_password: data.current_password
+            } as any);
+            resetPw();
+            toast.success('Password changed successfully');
+        } catch (error: any) {
+            console.error("Password change failed", error);
+            toast.error(error.message || 'Failed to change password');
+        } finally {
+            setIsChangingPassword(false);
         }
     };
 
@@ -113,35 +153,127 @@ export const Profile = () => {
 
                         {/* Personal Info Tab */}
                         {activeTab === 'profile' && (
-                            <form onSubmit={handleSubmit(onSubmitProfile)} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-teal-500 to-violet-500 flex items-center justify-center text-3xl font-bold text-white uppercase shadow-xl">
-                                        {user?.name?.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-medium text-slate-200">{user?.name}</h3>
-                                        <p className="text-sm text-slate-400">{user?.email}</p>
-                                        <button type="button" className="text-xs text-teal-400 hover:text-teal-300 mt-1">Change Avatar</button>
-                                    </div>
-                                </div>
+                            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
 
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    <Input label="Full Name" {...register('name')} />
-                                    <Input label="Email Address" {...register('email')} />
-                                </div>
+                                {/* ── Profile info form ── */}
+                                <form onSubmit={handleSubmit(onSubmitProfile)} className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-teal-500 to-violet-500 flex items-center justify-center text-3xl font-bold text-white uppercase shadow-xl">
+                                            {user?.name?.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-medium text-slate-200">{user?.name}</h3>
+                                            <p className="text-sm text-slate-400">{user?.email}</p>
+                                            <button type="button" className="text-xs text-teal-400 hover:text-teal-300 mt-1">Change Avatar</button>
+                                        </div>
+                                    </div>
 
-                                <div className="pt-4 border-t border-white/5">
-                                    <h4 className="text-sm font-medium text-slate-300 mb-4">Change Password</h4>
                                     <div className="grid md:grid-cols-2 gap-4">
-                                        <Input label="Current Password" type="password" placeholder="••••••••" />
-                                        <Input label="New Password" type="password" placeholder="••••••••" />
+                                        <Input label="Full Name" {...register('name')} />
+                                        <Input label="Email Address" {...register('email')} />
                                     </div>
+
+                                    <div className="flex justify-end">
+                                        <Button type="submit">Save Profile</Button>
+                                    </div>
+                                </form>
+
+                                {/* ── Change password form (separate — nested forms are invalid HTML) ── */}
+                                <div className="border-t border-white/5 pt-6">
+                                    <h4 className="text-sm font-medium text-slate-300 mb-4 flex items-center gap-2">
+                                        <Lock size={16} className="text-slate-400" /> Change Password
+                                    </h4>
+                                    <form onSubmit={handleSubmitPw(onChangePassword)} className="space-y-4">
+                                        <div className="grid md:grid-cols-2 gap-4">
+
+                                            {/* Current Password */}
+                                            <div className="w-full">
+                                                <label className="block text-sm font-medium text-slate-300 mb-2">Current Password</label>
+                                                <div className="flex items-center w-full rounded-lg bg-white/10 border border-white/20 focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent transition-all duration-200"
+                                                    style={pwErrors.current_password ? { borderColor: 'rgb(248 113 113)' } : {}}>
+                                                    <input
+                                                        {...registerPw('current_password')}
+                                                        type={showPw.current ? 'text' : 'password'}
+                                                        placeholder="••••••••"
+                                                        className="flex-1 px-4 py-3 bg-transparent text-slate-100 placeholder:text-slate-400 focus:outline-none rounded-lg"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => togglePw('current')}
+                                                        className="px-3 text-slate-400 hover:text-slate-200 transition-colors flex-shrink-0"
+                                                        tabIndex={-1}
+                                                        aria-label={showPw.current ? 'Hide password' : 'Show password'}
+                                                    >
+                                                        {showPw.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    </button>
+                                                </div>
+                                                {pwErrors.current_password && (
+                                                    <p className="mt-1 text-sm text-red-400">{pwErrors.current_password.message}</p>
+                                                )}
+                                            </div>
+
+                                            {/* New Password */}
+                                            <div className="w-full">
+                                                <label className="block text-sm font-medium text-slate-300 mb-2">New Password</label>
+                                                <div className="flex items-center w-full rounded-lg bg-white/10 border border-white/20 focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent transition-all duration-200"
+                                                    style={pwErrors.new_password ? { borderColor: 'rgb(248 113 113)' } : {}}>
+                                                    <input
+                                                        {...registerPw('new_password')}
+                                                        type={showPw.new ? 'text' : 'password'}
+                                                        placeholder="••••••••"
+                                                        className="flex-1 px-4 py-3 bg-transparent text-slate-100 placeholder:text-slate-400 focus:outline-none rounded-lg"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => togglePw('new')}
+                                                        className="px-3 text-slate-400 hover:text-slate-200 transition-colors flex-shrink-0"
+                                                        tabIndex={-1}
+                                                        aria-label={showPw.new ? 'Hide password' : 'Show password'}
+                                                    >
+                                                        {showPw.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    </button>
+                                                </div>
+                                                {pwErrors.new_password && (
+                                                    <p className="mt-1 text-sm text-red-400">{pwErrors.new_password.message}</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Confirm New Password */}
+                                        <div className="md:w-1/2 w-full">
+                                            <label className="block text-sm font-medium text-slate-300 mb-2">Confirm New Password</label>
+                                            <div className="flex items-center w-full rounded-lg bg-white/10 border border-white/20 focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent transition-all duration-200"
+                                                style={pwErrors.confirm_password ? { borderColor: 'rgb(248 113 113)' } : {}}>
+                                                <input
+                                                    {...registerPw('confirm_password')}
+                                                    type={showPw.confirm ? 'text' : 'password'}
+                                                    placeholder="••••••••"
+                                                    className="flex-1 px-4 py-3 bg-transparent text-slate-100 placeholder:text-slate-400 focus:outline-none rounded-lg"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePw('confirm')}
+                                                    className="px-3 text-slate-400 hover:text-slate-200 transition-colors flex-shrink-0"
+                                                    tabIndex={-1}
+                                                    aria-label={showPw.confirm ? 'Hide password' : 'Show password'}
+                                                >
+                                                    {showPw.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                            </div>
+                                            {pwErrors.confirm_password && (
+                                                <p className="mt-1 text-sm text-red-400">{pwErrors.confirm_password.message}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex justify-end">
+                                            <Button type="submit" isLoading={isChangingPassword} variant="outline">
+                                                Update Password
+                                            </Button>
+                                        </div>
+                                    </form>
                                 </div>
 
-                                <div className="pt-4 flex justify-end">
-                                    <Button type="submit">Save Changes</Button>
-                                </div>
-                            </form>
+                            </div>
                         )}
 
                         {/* Preferences Tab */}

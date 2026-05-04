@@ -301,5 +301,41 @@ export const api = {
      */
     async updatePreferences(preferences: Record<string, any>): Promise<UserProfile> {
         return this.updateProfile({ preferences } as any);
-    }
+    },
+
+    /**
+     * Forgot Password - request a reset token
+     */
+    async forgotPassword(email: string): Promise<{ message: string; token?: string; reset_url?: string }> {
+        const response = await fetch(`${API_URL}/api/v1/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || 'Failed to request password reset');
+        }
+
+        return response.json();
+    },
+
+    /**
+     * Reset Password - use a valid token to set a new password
+     */
+    async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+        const response = await fetch(`${API_URL}/api/v1/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, new_password: newPassword }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || 'Failed to reset password');
+        }
+
+        return response.json();
+    },
 };
